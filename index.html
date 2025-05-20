@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Website</title>
+    <script type="module" src="index.js" async></script>
+  </head>
+
+  <body>
+    <div class="main-container">
+      <div class="sidebar"></div>
+      <div
+        id="content"
+        class="main-content half-width"
+        contenteditable="true"
+        tabindex="1"
+      ></div>
+    </div>
+  </body>
+</html>
+
+<style>
+  .main-container {
+    margin: 0;
+  }
+
+  .main-content {
+    margin: 0 auto;
+    direction: ltr;
+    min-height: 100px;
+  }
+
+  .main-content:focus {
+    outline: none;
+  }
+
+  .full-width-flex {
+    flex-grow: 1;
+  }
+
+  .half-width {
+    width: 50%;
+  }
+
+  .sidebar {
+    width: 200px;
+    background-color: #f0f0f0;
+    display: none;
+  }
+
+  .blue-caret {
+    background-color: #0000ff;
+  }
+</style>
