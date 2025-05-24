@@ -10,7 +10,24 @@
   // Reactive state
   let viewMode = $state('split'); // 'split', 'editor', 'preview', 'focus'
   let isSpellcheckEnabled = $state(true);
-  let editorContent = $state(`# Welcome to Textly
+  let editorContent = $state('');
+  
+  // Load content and view mode from localStorage on mount
+  onMount(() => {
+    if (browser) {
+      // Load saved view mode
+      const savedViewMode = localStorage.getItem('textly-view-mode');
+      if (savedViewMode) {
+        viewMode = savedViewMode;
+      }
+
+      // Load saved content
+      const savedContent = localStorage.getItem('textly-content');
+      if (savedContent) {
+        editorContent = savedContent;
+      } else {
+        // Set default content if nothing is saved
+        editorContent = `# Welcome to Textly
 
 This is a **markdown editor** with *live preview* built with **Svelte**!
 
@@ -64,7 +81,10 @@ function createFocusMode() {
 
 ---
 
-Happy writing! ✨`);
+Happy writing! ✨`;
+      }
+    }
+  });
   
   let leftPaneWidth = $state(50); // Percentage
   let contentWidth = $state<'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full'>('5xl'); // Default width for focus mode
@@ -72,6 +92,10 @@ Happy writing! ✨`);
   // Functions to handle state changes
   function handleViewModeChange(newMode: string) {
     viewMode = newMode;
+    // Save view mode to localStorage
+    if (browser) {
+      localStorage.setItem('textly-view-mode', newMode);
+    }
     if (newMode === 'split') {
       leftPaneWidth = 50; // Reset to 50/50 when switching back to split
     }
@@ -91,6 +115,10 @@ Happy writing! ✨`);
   
   function handleContentChange(newContent: string) {
     editorContent = newContent;
+    // Save to localStorage whenever content changes
+    if (browser) {
+      localStorage.setItem('textly-content', newContent);
+    }
   }
   
   // Keyboard shortcuts

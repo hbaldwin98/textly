@@ -263,6 +263,10 @@
     color: inherit !important;
     width: 100% !important;
     box-sizing: border-box !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    white-space: pre-wrap !important;
   }
 
   :global(.milkdown-immersive .ProseMirror-focused) {
@@ -363,6 +367,66 @@
     }
   }
 
+  /* List styles with reduced spacing */
+  :global(.milkdown-immersive .ProseMirror ul),
+  :global(.milkdown-immersive .ProseMirror ol) {
+    margin: 0 !important;
+    padding-left: 1.5rem !important;
+    line-height: 1 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  @media (min-width: 1024px) {
+    :global(.milkdown-immersive .ProseMirror ul),
+    :global(.milkdown-immersive .ProseMirror ol) {
+      margin: 0 !important;
+      padding-left: 2rem !important;
+      line-height: 1 !important;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    :global(.milkdown-immersive .ProseMirror ul),
+    :global(.milkdown-immersive .ProseMirror ol) {
+      margin: 0 !important;
+      padding-left: 2.5rem !important;
+      line-height: 1 !important;
+    }
+  }
+
+  :global(.milkdown-immersive .ProseMirror li) {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  @media (min-width: 1024px) {
+    :global(.milkdown-immersive .ProseMirror li) {
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    :global(.milkdown-immersive .ProseMirror li) {
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+    }
+  }
+
+  /* Nested lists */
+  :global(.milkdown-immersive .ProseMirror li ul),
+  :global(.milkdown-immersive .ProseMirror li ol) {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+  }
+
   :global(.milkdown-immersive .ProseMirror blockquote) {
     border-left: 4px solid #e5e7eb !important;
     padding-left: 1rem !important;
@@ -398,10 +462,14 @@
     display: none !important;
   }
 
-  /* Ensure all content spans full width */
+  /* Ensure all content spans full width and handles overflow properly */
   :global(.milkdown-immersive .ProseMirror > *) {
     width: 100% !important;
     box-sizing: border-box !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    white-space: pre-wrap !important;
   }
 
   /* Custom slider styles */
