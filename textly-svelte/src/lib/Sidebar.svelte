@@ -1,0 +1,236 @@
+<script lang="ts">
+  import { browser } from '$app/environment';
+  import { onMount } from 'svelte';
+  
+  // Props
+  interface Props {
+    viewMode: string;
+    isSpellcheckEnabled: boolean;
+    onViewModeChange: (mode: string) => void;
+    onSpellcheckToggle: () => void;
+    currentWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full';
+    onWidthChange?: (width: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full') => void;
+  }
+  
+  let { viewMode, isSpellcheckEnabled, onViewModeChange, onSpellcheckToggle, currentWidth, onWidthChange }: Props = $props();
+  
+  let isOpen = $state(false);
+  let isHovering = $state(false);
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  
+  // Width options array for the slider
+  const widthOptions = ['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl', 'full'] as const;
+  const widthLabels = ['XS', 'SM', 'MD', 'LG', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', 'Full'];
+  
+  function toggleSidebar() {
+    isOpen = !isOpen;
+  }
+  
+  function handleMouseEnter() {
+    isHovering = true;
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (!isOpen) {
+      timeoutId = setTimeout(() => {
+        if (isHovering) {
+          isOpen = true;
+        }
+      }, 300);
+    }
+  }
+  
+  function handleMouseLeave() {
+    isHovering = false;
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    timeoutId = setTimeout(() => {
+      if (!isHovering) {
+        isOpen = false;
+      }
+    }, 500);
+  }
+  
+  function toggleDarkMode() {
+    if (browser && (window as any).toggleDarkMode) {
+      (window as any).toggleDarkMode();
+    }
+  }
+  
+  onMount(() => {
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  });
+</script>
+
+<!-- Sidebar Toggle Tab (subtle edge trigger) -->
+{#if !isOpen}
+  <button
+    class="fixed top-1/2 left-0 -translate-y-1/2 z-50 w-4 h-16 bg-gray-600 dark:bg-zinc-600 text-white rounded-r-sm shadow-sm hover:w-6 hover:bg-gray-700 dark:hover:bg-zinc-700 transition-all duration-300 flex items-center justify-center group opacity-20 hover:opacity-60"
+    onclick={toggleSidebar}
+    onmouseenter={handleMouseEnter}
+    title="Open Sidebar"
+  >
+    <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor" class="opacity-60 group-hover:opacity-100 transition-opacity duration-300">
+      <path d="M4.5 2L8 6l-3.5 4v-2.5H1v-3h3.5V2z"/>
+    </svg>
+  </button>
+{/if}
+
+<!-- Sidebar -->
+<div
+  class="fixed top-0 left-0 h-full w-64 bg-gray-50 dark:bg-zinc-950 border-r border-gray-200 dark:border-zinc-800 shadow-xl z-40 transform transition-transform duration-300 ease-in-out flex flex-col
+         {isOpen ? 'translate-x-0' : '-translate-x-full'}"
+  onmouseenter={handleMouseEnter}
+  onmouseleave={handleMouseLeave}
+  role="navigation"
+  aria-label="Sidebar"
+>
+  <!-- Header -->
+  <div class="p-4 border-b border-gray-200 dark:border-zinc-800">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">Textly</h2>
+      <button
+        onclick={toggleSidebar}
+        class="p-1 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+        title="Close Sidebar"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  
+  <!-- View Mode Section -->
+  <div class="p-4 flex-1">
+    <h3 class="text-sm font-medium text-gray-700 dark:text-zinc-300 mb-3">View Mode</h3>
+    <div class="space-y-2">
+      <button
+        class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded transition-all
+               {viewMode === 'split' ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}"
+        onclick={() => onViewModeChange('split')}
+        title="Split View (Ctrl+2)"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M6 2h4v12H6V2zm-1 0H1v12h4V2zm7 0v12h4V2h-4z"/>
+        </svg>
+        Split View
+      </button>
+      
+      <button
+        class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded transition-all
+               {viewMode === 'editor' ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}"
+        onclick={() => onViewModeChange('editor')}
+        title="Editor Only (Ctrl+1)"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M2 3h12v10H2V3zm1 1v8h10V4H3z"/>
+        </svg>
+        Editor Only
+      </button>
+      
+      <button
+        class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded transition-all
+               {viewMode === 'preview' ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}"
+        onclick={() => onViewModeChange('preview')}
+        title="Preview Only (Ctrl+3)"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M2 2h12v2H2V2zm0 3h8v1H2V5zm0 2h8v1H2V7zm0 2h8v1H2V9zm0 2h8v1H2v-1z"/>
+        </svg>
+        Preview Only
+      </button>
+      
+      <button
+        class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded transition-all
+               {viewMode === 'focus' ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}"
+        onclick={() => onViewModeChange('focus')}
+        title="Focus Mode (Ctrl+4)"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 2.5a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V3.5H6a.5.5 0 0 1 0-1h2zM10 6a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1H10.5V8a.5.5 0 0 1-1 0V6zM6 10a.5.5 0 0 1-.5.5H3a.5.5 0 0 1 0-1h2.5V8a.5.5 0 0 1 1 0v2zM10 10v1.5H8.5a.5.5 0 0 1 0-1H10z"/>
+        </svg>
+        Focus Mode
+      </button>
+    </div>
+  </div>
+  
+  <!-- Width Slider (only in focus mode) -->
+  {#if viewMode === 'focus' && currentWidth && onWidthChange}
+    <div class="px-3 py-2">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-gray-700 dark:text-zinc-300">Content Width</span>
+        <span class="text-xs font-medium text-blue-600 dark:text-blue-400">{currentWidth}</span>
+      </div>
+      <input
+        type="range"
+        min="0"
+        max="10"
+        value={widthOptions.indexOf(currentWidth)}
+        oninput={(e) => {
+          const value = (e.target as HTMLInputElement).value;
+          onWidthChange(widthOptions[parseInt(value)]);
+        }}
+        class="w-full h-1 bg-gray-200 dark:bg-zinc-600 rounded-lg appearance-none cursor-pointer slider"
+      />
+    </div>
+  {/if}
+  
+  <!-- Settings Section (at bottom) -->
+  <div class="p-4 border-t border-gray-200 dark:border-zinc-800">
+    <h3 class="text-sm font-medium text-gray-700 dark:text-zinc-300 mb-3">Settings</h3>
+    <div class="space-y-2">
+      <!-- Spellcheck Toggle -->
+      <button
+        class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded transition-all
+               {isSpellcheckEnabled 
+                 ? 'bg-blue-600 text-white' 
+                 : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}"
+        onclick={onSpellcheckToggle}
+        title="Toggle Spellcheck (Ctrl+S)"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M11.93 8.5a4.02 4.02 0 0 1-7.86 0A4.02 4.02 0 0 1 8 4.5a4.02 4.02 0 0 1 3.93 4M8 5.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM14 2.5h-1v-1h-1v1H3v-1H2v1H1v1h1v11h1v1h9v-1h1v-1H3v-11h9v1h1v-1h1v-1z"/>
+          <path d="M8 7a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+        </svg>
+        Spellcheck
+        <span class="ml-auto text-xs opacity-60">
+          {isSpellcheckEnabled ? 'ON' : 'OFF'}
+        </span>
+      </button>
+      
+      <!-- Dark Mode Toggle -->
+      <button
+        class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all"
+        onclick={toggleDarkMode}
+        title="Toggle Dark Mode"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="dark:hidden">
+          <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 1A5 5 0 1 1 8 3a5 5 0 0 1 0 10zm.5-9.5h-1v-1h1v1zm0 11h-1v-1h1v1zm5-5.5v-1h-1v1h1zm-11 0v-1h-1v1h1z"/>
+        </svg>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="hidden dark:block">
+          <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+        </svg>
+        Dark Mode
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay for mobile -->
+{#if isOpen}
+  <div
+    class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+    onclick={toggleSidebar}
+    role="button"
+    tabindex="0"
+    aria-label="Close sidebar"
+  ></div>
+{/if} 

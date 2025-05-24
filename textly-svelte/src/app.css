@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* High-DPI display improvements */
+@layer base {
+  html {
+    /* Better base font size for high-DPI displays */
+    font-size: 16px;
+  }
+  
+  /* Scale up on high-DPI displays */
+  @media (min-resolution: 2dppx) {
+    html {
+      font-size: 18px;
+    }
+  }
+  
+  @media (min-resolution: 3dppx) {
+    html {
+      font-size: 20px;
+    }
+  }
+  
+  /* Scale up on very large screens */
+  @media (min-width: 2560px) {
+    html {
+      font-size: 20px;
+    }
+  }
+  
+  @media (min-width: 3840px) {
+    html {
+      font-size: 24px;
+    }
+  }
+}
+
+/* Custom styles for CodeMirror */
+@layer components {
+  .cm-editor {
+    @apply h-full font-mono;
+    /* Responsive text sizing instead of fixed text-sm */
+    font-size: 0.875rem;
+    background: inherit !important; /* Ensure background inheritance */
+  }
+  
+  /* Scale up CodeMirror on large displays */
+  @media (min-width: 2560px) {
+    .cm-editor {
+      font-size: 1rem;
+    }
+  }
+  
+  @media (min-width: 3840px) {
+    .cm-editor {
+      font-size: 1.125rem;
+    }
+  }
+  
+  .cm-scroller {
+    @apply leading-6;
+  }
+  
+  /* Spellcheck styling */
+  .cm-editor.cm-spellcheck .cm-content {
+    spellcheck: true;
+  }
+  
+  .cm-editor:not(.cm-spellcheck) .cm-content {
+    spellcheck: false;
+  }
+} 
