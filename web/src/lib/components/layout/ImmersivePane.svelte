@@ -11,7 +11,6 @@
 
   // Props
   export let content = "";
-  export let onContentChange = (newContent: string) => {};
   export let maxWidth:
     | "sm"
     | "md"
@@ -90,12 +89,6 @@
       .config((ctx) => {
         ctx.set(rootCtx, editorElement);
         ctx.set(defaultValueCtx, content);
-      })
-      .config((ctx) => {
-        // Listen for content changes
-        ctx.get(listenerCtx).markdownUpdated((_, markdown) => {
-          onContentChange(markdown);
-        });
       })
       .config(nord)
       .use(commonmark)
@@ -204,17 +197,6 @@
         </div>
       {/if}
     </div>
-  </div>
-
-  <!-- Subtle bottom hint -->
-  <div
-    class="text-center py-3 text-xs text-gray-400/50 dark:text-gray-500/50 opacity-0 hover:opacity-100 transition-opacity
-              lg:py-4 lg:text-xs"
-  >
-    Press <kbd
-      class="px-1 py-0.5 bg-gray-200/50 dark:bg-gray-700/50 text-gray-700/50 dark:text-gray-300/50 rounded text-xs
-                     lg:px-1.5 lg:py-0.5 lg:text-xs">Ctrl+E</kbd
-    > to toggle between edit and preview
   </div>
 </div>
 

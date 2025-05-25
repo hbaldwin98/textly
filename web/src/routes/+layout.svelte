@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   
+  let { children } = $props();
   let darkMode = $state(false);
   
   onMount(() => {
@@ -40,5 +41,5 @@
 </script>
 
 <div class="h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-  <slot />
+  {@render children()}
 </div> 

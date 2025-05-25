@@ -28,7 +28,6 @@
 		"@codemirror/lang-markdown": "^6.3.2",
 		"@codemirror/language": "^6.11.0",
 		"@codemirror/state": "^6.5.2",
-		"@codemirror/theme-one-dark": "^6.1.2",
 		"@lezer/highlight": "^1.2.1",
 		"@milkdown/core": "^7.11.1",
 		"@milkdown/plugin-clipboard": "^7.11.1",
@@ -37,11 +36,9 @@
 		"@milkdown/preset-commonmark": "^7.11.1",
 		"@milkdown/preset-gfm": "^7.11.1",
 		"@milkdown/theme-nord": "^7.11.1",
-		"@types/turndown": "^5.0.5",
 		"codemirror": "^6.0.1",
 		"marked": "^15.0.12",
 		"openai": "^4.103.0",
-		"pocketbase": "^0.26.0",
-		"turndown": "^7.2.0"
+		"pocketbase": "^0.26.0"
 	}
 }

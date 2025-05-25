@@ -17,7 +17,7 @@
   // Resize state
   let isResizing = false;
   let startX = 0;
-  let startWidth = 320; // Default width in pixels
+  let startWidth = 500; // Default width in pixels
   let currentWidth = startWidth;
   let minWidth = 280;
   let maxWidth = 800;

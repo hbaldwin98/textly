@@ -86,8 +86,8 @@ function createFocusMode() {
 
 ### Keyboard Shortcuts
 
-- **Ctrl/Cmd + 1**: Editor only
-- **Ctrl/Cmd + 2**: Split view  
+- **Ctrl/Cmd + 1**: Split view
+- **Ctrl/Cmd + 2**: Editor only  
 - **Ctrl/Cmd + 3**: Preview only
 - **Ctrl/Cmd + 4**: **Focus mode** 🎯
 - **Ctrl/Cmd + S**: Toggle spellcheck
@@ -210,8 +210,6 @@ Happy writing! ✨`;
         {:else if viewMode === 'focus'}
           <ImmersivePane 
             content={editorContent}
-            onContentChange={handleContentChange}
-            maxWidth="5xl"
             currentWidth={contentWidth}
           />
         {:else}
@@ -237,6 +235,7 @@ Happy writing! ✨`;
     <!-- AI Suggestions Sidebar -->
     <div class="absolute right-0 top-0 h-full z-20">
       <AIPanel
+        bind:isOpen={isAISidebarOpen}
         onSuggestionAccept={(suggestion) => {
           // TODO: Implement suggestion insertion
           console.log('Suggestion accepted:', suggestion);
