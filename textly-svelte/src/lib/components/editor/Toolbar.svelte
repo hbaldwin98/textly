@@ -42,6 +42,9 @@
              {viewMode === 'editor' ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
       onclick={() => onViewModeChange('editor')}
       title="Editor Only"
+      aria-label="Editor Only"
+      role="button"
+      aria-pressed={viewMode === 'editor'}
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="lg:w-4 lg:h-4 xl:w-5 xl:h-5">
         <path d="M2 3h12v10H2V3zm1 1v8h10V4H3z"/>
@@ -55,6 +58,9 @@
              {viewMode === 'preview' ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
       onclick={() => onViewModeChange('preview')}
       title="Preview Only"
+      aria-label="Preview Only"
+      role="button"
+      aria-pressed={viewMode === 'preview'}
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="lg:w-4 lg:h-4 xl:w-5 xl:h-5">
         <path d="M2 2h12v2H2V2zm0 3h8v1H2V5zm0 2h8v1H2V7zm0 2h8v1H2V9zm0 2h8v1H2v-1z"/>
@@ -68,6 +74,9 @@
              {viewMode === 'focus' ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
       onclick={() => onViewModeChange('focus')}
       title="Focus Mode"
+      aria-label="Focus Mode"
+      role="button"
+      aria-pressed={viewMode === 'focus'}
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="lg:w-4 lg:h-4 xl:w-5 xl:h-5">
         <path d="M8 2.5a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V3.5H6a.5.5 0 0 1 0-1h2zM10 6a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1H10.5V8a.5.5 0 0 1-1 0V6zM6 10a.5.5 0 0 1-.5.5H3a.5.5 0 0 1 0-1h2.5V8a.5.5 0 0 1 1 0v2zM10 10v1.5H8.5a.5.5 0 0 1 0-1H10z"/>
@@ -87,6 +96,9 @@
                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}"
       onclick={onSpellcheckToggle}
       title="Toggle Spellcheck (Ctrl+S)"
+      aria-label="Toggle Spellcheck"
+      role="button"
+      aria-pressed={isSpellcheckEnabled}
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="lg:w-4 lg:h-4 xl:w-5 xl:h-5">
         <path d="M11.93 8.5a4.02 4.02 0 0 1-7.86 0A4.02 4.02 0 0 1 8 4.5a4.02 4.02 0 0 1 3.93 4M8 5.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM14 2.5h-1v-1h-1v1H3v-1H2v1H1v1h1v11h1v1h9v-1h1v-1H3v-11h9v1h1v-1h1v-1z"/>
@@ -101,6 +113,9 @@
              lg:px-3.5 lg:py-2 lg:text-sm lg:gap-1.5 xl:px-4 xl:py-2.5 xl:text-base xl:gap-2"
       onclick={toggleDarkMode}
       title="Toggle Dark Mode"
+      aria-label="Toggle Dark Mode"
+      role="button"
+      aria-pressed={document.documentElement.classList.contains('dark')}
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="dark:hidden lg:w-4 lg:h-4 xl:w-5 xl:h-5">
         <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 1A5 5 0 1 1 8 3a5 5 0 0 1 0 10zm.5-9.5h-1v-1h1v1zm0 11h-1v-1h1v1zm5-5.5v-1h-1v1h1zm-11 0v-1h-1v1h1z"/>

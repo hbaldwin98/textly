@@ -5,6 +5,7 @@
     type ChatMessage,
     type ChatConversation,
   } from "$lib/services/ai";
+  import { marked } from "marked";
 
   // State
   let messageInput = "";
@@ -12,9 +13,79 @@
   let editingMessageId: string | null = null;
   let editingContent = "";
   let editingElement: HTMLElement | null = null;
+  let activeMenuMessageId: string | null = null;
+  let renderedContents = new Map<string, string>();
 
   // Use Svelte's reactive store syntax for better reactivity
   $: aiState = $aiStore;
+
+  // Configure marked options
+  marked.setOptions({
+    breaks: true, // Convert line breaks to <br>
+    gfm: true, // GitHub Flavored Markdown
+    async: true, // Enable async rendering
+  });
+
+  // Function to render markdown content
+  function renderMarkdown(
+    node: HTMLElement,
+    content: string,
+    messageId: string
+  ) {
+    // Check if we already have a rendered version
+    if (renderedContents.has(messageId)) {
+      node.innerHTML = renderedContents.get(messageId) || "";
+      return;
+    }
+
+    // During streaming, show raw text with line breaks
+    const currentConversation = aiState.currentConversation;
+    const messages = currentConversation?.messages;
+    const hasMessages = messages && messages.length > 0;
+    const lastMessage = hasMessages ? messages[messages.length - 1] : null;
+
+    const isStreaming =
+      aiState.isChatLoading &&
+      hasMessages &&
+      lastMessage?.role === "assistant" &&
+      lastMessage.id === messageId;
+
+    if (isStreaming) {
+      node.innerHTML = content.replace(/\n/g, "<br>");
+      return;
+    }
+
+    // Render markdown asynchronously
+    const parseResult = marked.parse(content);
+    if (parseResult instanceof Promise) {
+      parseResult
+        .then((rendered: string) => {
+          renderedContents.set(messageId, rendered);
+          node.innerHTML = rendered;
+        })
+        .catch((error: Error) => {
+          console.error("Error rendering markdown:", error);
+          node.innerHTML = content.replace(/\n/g, "<br>");
+        });
+    } else {
+      // If marked returns a string directly (synchronous mode)
+      renderedContents.set(messageId, parseResult);
+      node.innerHTML = parseResult;
+    }
+  }
+
+  // Create a Svelte action for markdown rendering
+  function markdownAction(node: HTMLElement, params: [string, string]) {
+    const [content, messageId] = params;
+    renderMarkdown(node, content, messageId);
+
+    return {
+      update(params: [string, string]) {
+        const [content, messageId] = params;
+        renderMarkdown(node, content, messageId);
+      },
+    };
+  }
 
   // Handle side effects reactively
   $: if (aiState.chatError) {
@@ -23,36 +94,40 @@
     }, 5000);
   }
 
-    // Auto-scroll for new messages and streaming content
+  // Auto-scroll for new messages and streaming content
   let previousMessageCount = 0;
   let previousContentLength = 0;
   let isUserNearBottom = true;
-  
+
   // Track if user is near bottom when they scroll manually
   function handleScroll() {
     if (!chatContainer) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainer;
     isUserNearBottom = scrollTop + clientHeight >= scrollHeight - 100;
   }
-  
+
   $: if (chatContainer && aiState.currentConversation?.messages) {
     const currentMessageCount = aiState.currentConversation.messages.length;
     const currentContentLength = aiState.currentConversation.messages
-      .map(m => m.content.length)
+      .map((m) => m.content.length)
       .reduce((a, b) => a + b, 0);
-    
+
     // Auto-scroll if:
     // 1. New message added, OR
     // 2. Content length increased (streaming), AND
     // 3. User is near bottom
-    if ((currentMessageCount > previousMessageCount || currentContentLength > previousContentLength) && isUserNearBottom) {
+    if (
+      (currentMessageCount > previousMessageCount ||
+        currentContentLength > previousContentLength) &&
+      isUserNearBottom
+    ) {
       setTimeout(() => {
         if (chatContainer && isUserNearBottom) {
           chatContainer.scrollTop = chatContainer.scrollHeight;
         }
       }, 10);
     }
-    
+
     previousMessageCount = currentMessageCount;
     previousContentLength = currentContentLength;
   }
@@ -102,7 +177,7 @@
         // Store IDs before clearing state
         const conversationId = aiState.currentConversation.id;
         const messageId = editingMessageId;
-        
+
         // Clear editing state immediately
         editingMessageId = null;
         editingContent = "";
@@ -158,8 +233,6 @@
     hoveredMessage = message;
   }
 
-  let activeMenuMessageId: string | null = null;
-
   function toggleMessageMenu(messageId: string) {
     activeMenuMessageId = activeMenuMessageId === messageId ? null : messageId;
   }
@@ -167,28 +240,32 @@
   // Close menu when clicking outside
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
-    if (!target.closest('.message-menu') && !target.closest('.menu-button')) {
+    if (!target.closest(".message-menu") && !target.closest(".menu-button")) {
       activeMenuMessageId = null;
     }
   }
 </script>
 
-<svelte:window on:click={handleClickOutside} />
+<svelte:window onclick={handleClickOutside} />
 
 <div class="flex flex-col h-full">
   <!-- Conversation List -->
-  <div class="border-b border-gray-200 dark:border-zinc-700 p-3">
+  <div class="border-b border-gray-200 dark:border-zinc-800 p-3">
     <div class="flex items-center justify-between mb-3">
       <h4
-        class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+        class="text-xs font-medium text-gray-600 dark:text-zinc-400 uppercase tracking-wide"
       >
         Conversations
       </h4>
       <button
-        class="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-        on:click={createNewConversation}
+        class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+        onclick={createNewConversation}
+        title="New Chat"
+        aria-label="Start New Chat"
       >
-        New Chat
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+        </svg>
       </button>
     </div>
 
@@ -196,45 +273,45 @@
       {#each aiState.conversations as conversation}
         <div class="flex items-center gap-2">
           <button
-            class="flex-1 text-left text-xs p-2 rounded hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors truncate"
-            class:bg-blue-50={aiState.currentConversation?.id ===
-              conversation.id}
-            class:text-blue-600={aiState.currentConversation?.id ===
-              conversation.id}
-            class:dark:text-blue-400={aiState.currentConversation?.id ===
-              conversation.id}
-            on:click={() => loadConversation(conversation.id)}
+            class="flex-1 text-left text-xs p-2 rounded hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate"
+            class:bg-blue-50={aiState.currentConversation?.id === conversation.id}
+            class:dark:bg-blue-950={aiState.currentConversation?.id === conversation.id}
+            class:text-blue-600={aiState.currentConversation?.id === conversation.id}
+            class:dark:text-blue-400={aiState.currentConversation?.id === conversation.id}
+            onclick={() => loadConversation(conversation.id)}
             title={conversation.title}
           >
             <div class="font-medium truncate">{conversation.title}</div>
-            <div class="text-gray-500 dark:text-gray-400">
+            <div class="text-gray-500 dark:text-zinc-400">
               {formatTimestamp(conversation.updatedAt)}
             </div>
           </button>
-          <button
-            class="p-1 text-gray-400 hover:text-red-500 transition-colors"
-            on:click={() => deleteConversation(conversation.id)}
-            title="Delete conversation"
-            aria-label="Delete conversation"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-3 w-3"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+          <div class="w-6 flex justify-end">
+            <button
+              class="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+              onclick={() => deleteConversation(conversation.id)}
+              title="Delete Chat"
+              aria-label="Delete Current Chat"
             >
-              <path
-                fill-rule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-3 w-3"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       {/each}
 
       {#if aiState.conversations.length === 0}
-        <div class="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+        <div class="text-xs text-gray-500 dark:text-zinc-400 text-center py-2">
           No conversations yet
         </div>
       {/if}
@@ -242,9 +319,13 @@
   </div>
 
   <!-- Chat Messages -->
-  <div class="flex-1 overflow-y-auto p-3 space-y-3" bind:this={chatContainer} on:scroll={handleScroll}>
+  <div
+    class="flex-1 overflow-y-auto p-3 space-y-4"
+    bind:this={chatContainer}
+    onscroll={handleScroll}
+  >
     {#if aiState.currentConversation?.messages.length === 0 || !aiState.currentConversation}
-      <div class="text-center text-gray-500 dark:text-gray-400 py-8">
+      <div class="text-center text-gray-500 dark:text-zinc-400 py-8">
         <div class="text-2xl mb-2">💬</div>
         <div class="text-sm">Start a conversation with the AI assistant</div>
         <div class="text-xs mt-1">
@@ -259,24 +340,22 @@
             : 'justify-start'}"
         >
           <div
-            class="w-[80%] {message.role === 'user'
-              ? 'order-2'
-              : 'order-1'}"
+            class="w-[80%] {message.role === 'user' ? 'order-2' : 'order-1'}"
           >
             <div class="relative">
               <div
                 class="px-3 py-2 rounded-lg text-sm {message.role === 'user'
                   ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100'}"
+                  : 'bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100'}"
               >
-                {#if message.role === 'user' && editingMessageId === message.id}
+                {#if message.role === "user" && editingMessageId === message.id}
                   <div class="flex flex-col">
                     <div
                       contenteditable="true"
                       bind:this={editingElement}
                       bind:innerHTML={editingContent}
-                      on:input={handleInput}
-                      on:keydown={handleKeydown}
+                      oninput={handleInput}
+                      onkeydown={handleKeydown}
                       class="w-full bg-transparent outline-none whitespace-pre-wrap break-words min-h-[1.5em]"
                       role="textbox"
                       aria-multiline="true"
@@ -284,15 +363,15 @@
                     ></div>
                     <div class="flex justify-end gap-2 mt-2">
                       <button
-                        class="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
-                        on:click={cancelEditing}
+                        class="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
+                        onclick={cancelEditing}
                         title="Cancel editing"
                       >
                         Cancel
                       </button>
                       <button
                         class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                        on:click={sendMessage}
+                        onclick={sendMessage}
                         disabled={!messageInput.trim()}
                         title="Apply changes and resubmit"
                       >
@@ -301,35 +380,59 @@
                     </div>
                   </div>
                 {:else}
-                  <div class="whitespace-pre-wrap break-words overflow-hidden">
-                    {message.content}
-                  </div>
-                  {#if message.role === 'user' && editingMessageId !== message.id}
+                  {#if message.role === "user"}
+                    <div
+                      class="whitespace-pre-wrap break-words overflow-hidden"
+                    >
+                      {message.content}
+                    </div>
+                  {:else}
+                    <div
+                      class="prose prose-sm dark:prose-invert max-w-none"
+                      use:markdownAction={[message.content, message.id]}
+                    ></div>
+                  {/if}
+                  {#if message.role === "user" && editingMessageId !== message.id}
                     <button
                       class="menu-button absolute top-2 right-2 p-1 text-blue-200 hover:text-white transition-colors"
-                      on:click={() => toggleMessageMenu(message.id)}
+                      onclick={() => toggleMessageMenu(message.id)}
                       title="Message options"
+                      aria-label="Message options menu"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"
+                        />
                       </svg>
                     </button>
                   {/if}
                 {/if}
               </div>
-              {#if message.role === 'user' && editingMessageId !== message.id && activeMenuMessageId === message.id}
-                <div 
-                  class="message-menu absolute right-0 top-full mt-1 bg-white dark:bg-zinc-800 shadow-lg rounded-lg py-1 z-50 min-w-[120px]"
+              {#if message.role === "user" && editingMessageId !== message.id && activeMenuMessageId === message.id}
+                <div
+                  class="message-menu absolute right-0 top-full mt-1 bg-white dark:bg-zinc-900 shadow-lg rounded-lg py-1 z-50 min-w-[120px]"
                 >
                   <button
-                    class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2"
-                    on:click={() => {
+                    class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 text-gray-700 dark:text-zinc-100"
+                    onclick={() => {
                       startEditing(message);
                       activeMenuMessageId = null;
                     }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
+                      />
                     </svg>
                     Edit message
                   </button>
@@ -337,7 +440,7 @@
               {/if}
             </div>
             <div
-              class="text-xs text-gray-500 dark:text-gray-400 mt-1 {message.role ===
+              class="text-xs text-gray-500 dark:text-zinc-400 mt-1 {message.role ===
               'user'
                 ? 'text-right'
                 : 'text-left'}"
@@ -352,17 +455,17 @@
     {#if aiState.isChatLoading}
       <div class="flex justify-start">
         <div class="max-w-[80%]">
-          <div class="px-3 py-2 rounded-lg bg-gray-100 dark:bg-zinc-800">
+          <div class="px-3 py-2 rounded-lg bg-white dark:bg-zinc-900">
             <div class="flex items-center space-x-1">
               <div
-                class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
               ></div>
               <div
-                class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
                 style="animation-delay: 0.1s"
               ></div>
               <div
-                class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
                 style="animation-delay: 0.2s"
               ></div>
             </div>
@@ -381,34 +484,45 @@
   </div>
 
   <!-- Message Input -->
-  <div class="border-t border-gray-200 dark:border-zinc-700 p-3">
+  <div class="border-t border-gray-200 dark:border-zinc-800 p-3">
     {#if !editingMessageId}
       <div class="flex gap-2">
         <textarea
           bind:value={messageInput}
-          on:keydown={handleKeydown}
+          onkeydown={handleKeydown}
           placeholder="Ask the AI assistant anything..."
-          class="flex-1 resize-none rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="flex-1 resize-none rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 placeholder-gray-500 dark:placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           rows="2"
           disabled={aiState.isChatLoading}
         ></textarea>
         {#if aiState.isChatLoading}
           <button
-            on:click={() => aiService.stopCurrentConversation()}
+            onclick={() => aiService.stopCurrentConversation()}
             class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
             title="Stop generating"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
+                clip-rule="evenodd"
+              />
             </svg>
             Stop
           </button>
         {:else}
           <button
-            on:click={sendMessage}
+            onclick={sendMessage}
             disabled={!messageInput.trim()}
-            class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            title="Send message (Enter)"
+            class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded border bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all
+                   lg:px-3.5 lg:py-2 lg:text-sm lg:gap-1.5 xl:px-4 xl:py-2.5 xl:text-base xl:gap-2"
+            title="Send Message"
+            aria-label="Send Message"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -423,7 +537,7 @@
           </button>
         {/if}
       </div>
-      <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+      <div class="text-xs text-gray-500 dark:text-zinc-400 mt-1">
         Press Enter to send, Shift+Enter for new line
       </div>
     {/if}

@@ -134,7 +134,7 @@
 
 <!-- Toggle Button -->
 <button
-  class="fixed top-4 right-4 w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-600 dark:text-gray-300 transition-colors"
+  class="fixed top-4 right-4 w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200/70 dark:hover:bg-zinc-700/70 text-gray-600 dark:text-gray-300 transition-colors backdrop-blur-sm"
   on:click={() => (isOpen = !isOpen)}
   title="AI Assistant"
   aria-label="AI Assistant"
@@ -142,20 +142,25 @@
   <svg
     xmlns="http://www.w3.org/2000/svg"
     class="h-5 w-5"
-    viewBox="0 0 20 20"
-    fill="currentColor"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
   >
-    <path
-      fill-rule="evenodd"
-      d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-      clip-rule="evenodd"
-    />
+    <rect x="3" y="11" width="18" height="10" rx="2" />
+    <circle cx="12" cy="5" r="2" />
+    <path d="M12 7v4" />
+    <line x1="8" y1="16" x2="8" y2="16" />
+    <line x1="16" y1="16" x2="16" y2="16" />
+    <path d="M9 20l3 3 3-3" />
   </svg>
 </button>
 
 <!-- Sidebar -->
 <div
-  class="h-full bg-gray-100 dark:bg-zinc-900 border-l border-gray-200 dark:border-zinc-800 overflow-hidden transform"
+  class="h-full bg-gray-50 dark:bg-zinc-950 border-l border-gray-200 dark:border-zinc-800 overflow-hidden transform"
   class:transition-transform={!isResizing}
   class:duration-300={!isResizing}
   class:ease-in-out={!isResizing}
@@ -171,12 +176,10 @@
 
   <div class="p-4 h-full flex flex-col">
     <!-- Header with tabs -->
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
-        AI Assistant
-      </h3>
+    <div class="flex items-center justify-between mb-4 border-b border-gray-200 dark:border-zinc-800 pb-4">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">AI Assistant</h2>
       <button
-        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        class="text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200"
         on:click={() => (isOpen = false)}
         aria-label="Close"
       >
@@ -196,39 +199,39 @@
     </div>
 
     <!-- Tab Navigation -->
-    <div class="flex mb-4 bg-gray-200 dark:bg-zinc-800 rounded-lg p-1">
+    <div class="flex mb-4 bg-white dark:bg-zinc-900 rounded-lg p-1">
       <button
         class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
-        class:bg-white={activeTab === "quick"}
-        class:dark:bg-zinc-700={activeTab === "quick"}
+        class:bg-gray-100={activeTab === "quick"}
+        class:dark:bg-zinc-800={activeTab === "quick"}
         class:text-blue-600={activeTab === "quick"}
         class:dark:text-blue-400={activeTab === "quick"}
         class:text-gray-600={activeTab !== "quick"}
-        class:dark:text-gray-400={activeTab !== "quick"}
+        class:dark:text-zinc-400={activeTab !== "quick"}
         on:click={() => (activeTab = "quick")}
       >
         Quick Actions
       </button>
       <button
         class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
-        class:bg-white={activeTab === "chat"}
-        class:dark:bg-zinc-700={activeTab === "chat"}
+        class:bg-gray-100={activeTab === "chat"}
+        class:dark:bg-zinc-800={activeTab === "chat"}
         class:text-blue-600={activeTab === "chat"}
         class:dark:text-blue-400={activeTab === "chat"}
         class:text-gray-600={activeTab !== "chat"}
-        class:dark:text-gray-400={activeTab !== "chat"}
+        class:dark:text-zinc-400={activeTab !== "chat"}
         on:click={() => (activeTab = "chat")}
       >
         Chat
       </button>
       <button
         class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
-        class:bg-white={activeTab === "settings"}
-        class:dark:bg-zinc-700={activeTab === "settings"}
+        class:bg-gray-100={activeTab === "settings"}
+        class:dark:bg-zinc-800={activeTab === "settings"}
         class:text-blue-600={activeTab === "settings"}
         class:dark:text-blue-400={activeTab === "settings"}
         class:text-gray-600={activeTab !== "settings"}
-        class:dark:text-gray-400={activeTab !== "settings"}
+        class:dark:text-zinc-400={activeTab !== "settings"}
         on:click={() => (activeTab = "settings")}
       >
         Settings

@@ -1,5 +1,13 @@
 <script lang="ts">
   import { marked } from 'marked';
+  import { onMount } from 'svelte';
+  
+  // Configure marked options
+  marked.setOptions({
+    breaks: true, // Convert line breaks to <br>
+    gfm: true, // GitHub Flavored Markdown
+    async: false // Disable async rendering for now
+  });
   
   // Props
   interface Props {
@@ -11,6 +19,17 @@
   
   // Reactive statement to render markdown
   let renderedHtml = $derived(marked(content));
+  
+  // Initialize on mount
+  onMount(() => {
+    // Force initial render
+    renderedHtml = marked(content);
+  });
+  
+  // Watch for content changes and re-render using $effect
+  $effect(() => {
+    renderedHtml = marked(content);
+  });
 </script>
 
 <div class="h-full w-full bg-white dark:bg-zinc-950 overflow-auto p-8">

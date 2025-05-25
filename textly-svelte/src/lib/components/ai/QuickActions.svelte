@@ -51,7 +51,7 @@
       </div>
     {:else if aiState.suggestions.length === 0 && aiState.history.length === 0}
       <div
-        class="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-zinc-800/50 p-2 rounded"
+        class="text-xs text-gray-500 dark:text-zinc-400 bg-gray-50 dark:bg-zinc-800/50 p-2 rounded"
       >
         Select text and right-click to get AI suggestions
       </div>
@@ -61,14 +61,14 @@
       {#if aiState.suggestions.length > 0}
         <div class="space-y-2">
           <div
-            class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2"
+            class="text-xs font-medium text-gray-600 dark:text-zinc-400 mb-2"
           >
             Current Suggestion
           </div>
           {#each aiState.suggestions as suggestion}
             <div class="group relative">
               <button
-                class="w-full text-left p-3 rounded bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap border border-gray-200 dark:border-zinc-700 transition-colors"
+                class="w-full text-left p-3 rounded bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm text-gray-900 dark:text-zinc-100 whitespace-pre-wrap border border-gray-200 dark:border-zinc-800 transition-colors"
                 on:click={() => onSuggestionAccept(suggestion)}
               >
                 {suggestion}
@@ -77,39 +77,22 @@
                 class="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <button
-                  class="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
-                  on:click|stopPropagation={() =>
-                    clipboardService.copy(suggestion)}
-                  title="Copy to clipboard"
+                  class="p-1 text-gray-400 hover:text-gray-600 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+                  on:click={() => onSuggestionAccept(suggestion)}
+                  title="Accept suggestion"
                 >
-                  {#if clipboardState.lastCopied === suggestion}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-4 w-4"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                  {:else}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-4 w-4"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
-                      />
-                      <path
-                        d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"
-                      />
-                    </svg>
-                  {/if}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -121,25 +104,25 @@
       {#if aiState.history.length > 0}
         <div class="space-y-2">
           <div
-            class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2"
+            class="text-xs font-medium text-gray-600 dark:text-zinc-400 mb-2"
           >
             Previous Suggestions
           </div>
           {#each aiState.history as item}
             <div
-              class="p-3 rounded bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700"
+              class="p-3 rounded bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800"
             >
               <div class="flex justify-between items-center mb-2">
-                <div class="text-xs text-gray-500 dark:text-gray-400">
+                <div class="text-xs text-gray-500 dark:text-zinc-400">
                   {formatTimestamp(item.timestamp)}
                 </div>
                 <div
                   class="text-xs px-2 py-1 rounded-full
                   {item.type === 'improvement'
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                    ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300'
                     : item.type === 'synonyms'
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                      : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'}"
+                      ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300'
+                      : 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300'}"
                 >
                   {item.type === "improvement"
                     ? "Improvement"
@@ -150,65 +133,17 @@
               </div>
               <div class="group relative">
                 <button
-                  class="w-full text-left p-2 bg-blue-50 dark:bg-blue-900/20 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                  class="w-full text-left p-2 bg-blue-50 dark:bg-blue-900/20 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-gray-900 dark:text-zinc-100"
                   on:click={() => onSuggestionAccept(item.suggestion)}
                 >
-                  <div
-                    class="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1"
-                  >
-                    Suggestion:
-                  </div>
-                  <div
-                    class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
-                  >
-                    {item.suggestion}
-                  </div>
+                  {item.suggestion}
                 </button>
-                <div
-                  class="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <button
-                    class="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
-                    on:click|stopPropagation={() =>
-                      clipboardService.copy(item.suggestion)}
-                    title="Copy to clipboard"
-                  >
-                    {#if clipboardState.lastCopied === item.suggestion}
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                    {:else}
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
-                        />
-                        <path
-                          d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"
-                        />
-                      </svg>
-                    {/if}
-                  </button>
-                </div>
               </div>
             </div>
           {/each}
         </div>
       {/if}
-    </div>
-  {/if}
+      </div>
+    {/if}
   </div>
 </div> 

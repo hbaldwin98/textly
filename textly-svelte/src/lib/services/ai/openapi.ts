@@ -1,1 +1,1 @@
-export const DEFAULT_MODEL = 'google/gemini-2.0-flash-001';
+export const DEFAULT_MODEL = 'meta-llama/llama-3.1-70b-instruct';
