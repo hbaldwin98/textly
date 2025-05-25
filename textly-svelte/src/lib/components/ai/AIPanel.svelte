@@ -3,6 +3,7 @@
   import ContextMenu from "./ContextMenu.svelte";
   import QuickActions from "./QuickActions.svelte";
   import ChatInterface from "./ChatInterface.svelte";
+  import AISettings from "./AISettings.svelte";
 
   export let onSuggestionAccept: (suggestion: string) => void = () => {};
   export let isOpen = false;
@@ -11,7 +12,7 @@
   let selectedText = "";
   let showSuggestionButton = false;
   let buttonPosition = { x: 0, y: 0 };
-  let activeTab: "quick" | "chat" = "quick";
+  let activeTab: "quick" | "chat" | "settings" = "quick";
 
   onMount(() => {
     // Set up event listeners for text selection and context menu
@@ -174,6 +175,18 @@
       >
         Chat
       </button>
+      <button
+        class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
+        class:bg-white={activeTab === "settings"}
+        class:dark:bg-zinc-700={activeTab === "settings"}
+        class:text-blue-600={activeTab === "settings"}
+        class:dark:text-blue-400={activeTab === "settings"}
+        class:text-gray-600={activeTab !== "settings"}
+        class:dark:text-gray-400={activeTab !== "settings"}
+        on:click={() => (activeTab = "settings")}
+      >
+        Settings
+      </button>
     </div>
 
     <!-- Tab Content -->
@@ -183,6 +196,9 @@
       </div>
       <div class="h-full" class:hidden={activeTab !== 'chat'}>
         <ChatInterface />
+      </div>
+      <div class="h-full" class:hidden={activeTab !== 'settings'}>
+        <AISettings />
       </div>
     </div>
   </div>

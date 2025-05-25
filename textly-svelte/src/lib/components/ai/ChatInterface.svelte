@@ -9,6 +9,9 @@
   // State
   let messageInput = "";
   let chatContainer: HTMLElement;
+  let editingMessageId: string | null = null;
+  let editingContent = "";
+  let editingElement: HTMLElement | null = null;
 
   // Use Svelte's reactive store syntax for better reactivity
   $: aiState = $aiStore;
@@ -54,6 +57,40 @@
     previousContentLength = currentContentLength;
   }
 
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    } else if (event.key === "Escape" && editingMessageId) {
+      event.preventDefault();
+      cancelEditing();
+    }
+  }
+
+  function handleInput(event: Event) {
+    const target = event.target as HTMLElement;
+    messageInput = target.innerText;
+  }
+
+  function startEditing(message: ChatMessage) {
+    editingMessageId = message.id;
+    editingContent = message.content;
+    messageInput = message.content;
+    // Focus the contenteditable div after a short delay to ensure it's mounted
+    setTimeout(() => {
+      if (editingElement) {
+        editingElement.focus();
+      }
+    }, 0);
+  }
+
+  function cancelEditing() {
+    editingMessageId = null;
+    editingContent = "";
+    messageInput = "";
+    editingElement = null;
+  }
+
   async function sendMessage() {
     if (!messageInput.trim() || aiState.isChatLoading) return;
 
@@ -61,16 +98,24 @@
     messageInput = "";
 
     try {
-      await aiService.sendChatMessage(message);
+      if (editingMessageId && aiState.currentConversation) {
+        // Store IDs before clearing state
+        const conversationId = aiState.currentConversation.id;
+        const messageId = editingMessageId;
+        
+        // Clear editing state immediately
+        editingMessageId = null;
+        editingContent = "";
+        editingElement = null;
+
+        // Use the service to handle editing and sending
+        await aiService.editChatMessage(conversationId, messageId, message);
+      } else {
+        // Send new message
+        await aiService.sendChatMessage(message);
+      }
     } catch (err) {
       console.error("Failed to send message:", err);
-    }
-  }
-
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      sendMessage();
     }
   }
 
@@ -106,8 +151,29 @@
     aiService.deleteConversation(conversationId);
   }
 
-      
+  // Remove context menu state and functions
+  let hoveredMessage: ChatMessage | null = null;
+
+  function handleMessageHover(message: ChatMessage | null) {
+    hoveredMessage = message;
+  }
+
+  let activeMenuMessageId: string | null = null;
+
+  function toggleMessageMenu(messageId: string) {
+    activeMenuMessageId = activeMenuMessageId === messageId ? null : messageId;
+  }
+
+  // Close menu when clicking outside
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.message-menu') && !target.closest('.menu-button')) {
+      activeMenuMessageId = null;
+    }
+  }
 </script>
+
+<svelte:window on:click={handleClickOutside} />
 
 <div class="flex flex-col h-full">
   <!-- Conversation List -->
@@ -193,18 +259,81 @@
             : 'justify-start'}"
         >
           <div
-            class="max-w-[80%] {message.role === 'user'
+            class="w-[80%] {message.role === 'user'
               ? 'order-2'
               : 'order-1'}"
           >
-            <div
-              class="px-3 py-2 rounded-lg text-sm {message.role === 'user'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100'}"
-            >
-              <div class="whitespace-pre-wrap break-words overflow-hidden">
-                {message.content}
+            <div class="relative">
+              <div
+                class="px-3 py-2 rounded-lg text-sm {message.role === 'user'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100'}"
+              >
+                {#if message.role === 'user' && editingMessageId === message.id}
+                  <div class="flex flex-col">
+                    <div
+                      contenteditable="true"
+                      bind:this={editingElement}
+                      bind:innerHTML={editingContent}
+                      on:input={handleInput}
+                      on:keydown={handleKeydown}
+                      class="w-full bg-transparent outline-none whitespace-pre-wrap break-words min-h-[1.5em]"
+                      role="textbox"
+                      aria-multiline="true"
+                    ></div>
+                    <div class="flex justify-end gap-2 mt-2">
+                      <button
+                        class="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                        on:click={cancelEditing}
+                        title="Cancel editing"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                        on:click={sendMessage}
+                        disabled={!messageInput.trim()}
+                        title="Apply changes and resubmit"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                {:else}
+                  <div class="whitespace-pre-wrap break-words overflow-hidden">
+                    {message.content}
+                  </div>
+                  {#if message.role === 'user' && editingMessageId !== message.id}
+                    <button
+                      class="menu-button absolute top-2 right-2 p-1 text-blue-200 hover:text-white transition-colors"
+                      on:click={() => toggleMessageMenu(message.id)}
+                      title="Message options"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                      </svg>
+                    </button>
+                  {/if}
+                {/if}
               </div>
+              {#if message.role === 'user' && editingMessageId !== message.id && activeMenuMessageId === message.id}
+                <div 
+                  class="message-menu absolute right-0 top-full mt-1 bg-white dark:bg-zinc-800 shadow-lg rounded-lg py-1 z-50 min-w-[120px]"
+                >
+                  <button
+                    class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2"
+                    on:click={() => {
+                      startEditing(message);
+                      activeMenuMessageId = null;
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                    Edit message
+                  </button>
+                </div>
+              {/if}
             </div>
             <div
               class="text-xs text-gray-500 dark:text-gray-400 mt-1 {message.role ===
@@ -252,41 +381,59 @@
 
   <!-- Message Input -->
   <div class="border-t border-gray-200 dark:border-zinc-700 p-3">
-    <div class="flex gap-2">
-      <textarea
-        bind:value={messageInput}
-        on:keydown={handleKeydown}
-        placeholder="Ask the AI assistant anything..."
-        class="flex-1 resize-none rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        rows="2"
-        disabled={aiState.isChatLoading}
-      ></textarea>
-      <button
-        on:click={sendMessage}
-        disabled={!messageInput.trim() || aiState.isChatLoading}
-        class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-        title="Send message (Enter)"
-      >
+    {#if !editingMessageId}
+      <div class="flex gap-2">
+        <textarea
+          bind:value={messageInput}
+          on:keydown={handleKeydown}
+          placeholder="Ask the AI assistant anything..."
+          class="flex-1 resize-none rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          rows="2"
+          disabled={aiState.isChatLoading}
+        ></textarea>
         {#if aiState.isChatLoading}
-          <div
-            class="animate-spin rounded-full h-3 w-3 border-b-2 border-white"
-          ></div>
-        {:else}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="currentColor"
+          <button
+            on:click={() => aiService.stopCurrentConversation()}
+            class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+            title="Stop generating"
           >
-            <path
-              d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"
-            />
-          </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+            </svg>
+            Stop
+          </button>
+        {:else}
+          <button
+            on:click={sendMessage}
+            disabled={!messageInput.trim()}
+            class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            title="Send message (Enter)"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"
+              />
+            </svg>
+          </button>
         {/if}
-      </button>
-    </div>
-    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-      Press Enter to send, Shift+Enter for new line
-    </div>
+      </div>
+      <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        Press Enter to send, Shift+Enter for new line
+      </div>
+    {/if}
   </div>
 </div>
+
+<style>
+  /* Prevent text selection when right-clicking */
+  :global(.user-message) {
+    user-select: none;
+  }
+
+  /* Remove transitions that might cause issues */
+</style>

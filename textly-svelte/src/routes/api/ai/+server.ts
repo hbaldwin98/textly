@@ -2,6 +2,7 @@ import { OpenAI } from 'openai';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { OPENAI_API_KEY } from '$env/static/private';
+import { DEFAULT_MODEL } from '$lib/services/ai/openapi';
 
 console.log('API Key available:', !!OPENAI_API_KEY);
 
@@ -56,7 +57,7 @@ export const POST: RequestHandler = async ({ request }) => {
         }
 
         const completion = await client.chat.completions.create({
-            model: "mistralai/devstral-small:free",
+            model: DEFAULT_MODEL,
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },

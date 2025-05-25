@@ -2,6 +2,7 @@ import { OpenAI } from 'openai';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { OPENAI_API_KEY } from '$env/static/private';
+import { DEFAULT_MODEL } from '$lib/services/ai/openapi';
 
 const client = new OpenAI({
     baseURL: "https://openrouter.ai/api/v1",
@@ -42,7 +43,7 @@ export const POST: RequestHandler = async ({ request }) => {
         });
 
         const completion = await client.chat.completions.create({
-            model: "deepseek/deepseek-r1:free",//"mistralai/devstral-small:free",
+            model: DEFAULT_MODEL,
             messages: messages as any,
             temperature: 0.7,
             max_tokens: 1000,
@@ -52,8 +53,22 @@ export const POST: RequestHandler = async ({ request }) => {
         // Create a readable stream for the response
         const stream = new ReadableStream({
             async start(controller) {
+                let isAborted = false;
+
+                // Listen for client disconnection
+                request.signal?.addEventListener('abort', () => {
+                    isAborted = true;
+                    controller.close();
+                });
+
                 try {
                     for await (const chunk of completion) {
+                        // Check if the request was aborted
+                        if (isAborted) {
+                            // Break the stream to stop token generation
+                            break;
+                        }
+
                         const content = chunk.choices[0]?.delta?.content;
                         if (content) {
                             // Send each chunk as a JSON object
@@ -61,9 +76,16 @@ export const POST: RequestHandler = async ({ request }) => {
                             controller.enqueue(new TextEncoder().encode(data));
                         }
                     }
-                    // Send end signal
-                    controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true }) + '\n'));
-                } catch (error) {
+                    // Only send end signal if not aborted
+                    if (!isAborted) {
+                        controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true }) + '\n'));
+                    }
+                } catch (error: unknown) {
+                    // If the error is from an aborted request, just close the stream
+                    if (error instanceof Error && error.name === 'AbortError') {
+                        controller.close();
+                        return;
+                    }
                     controller.error(error);
                 } finally {
                     controller.close();
