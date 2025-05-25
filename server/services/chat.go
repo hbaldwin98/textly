@@ -3,11 +3,17 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
+	"strconv"
 	"strings"
+	"textly/queries"
+	"time"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/packages/param"
 	"github.com/openai/openai-go/packages/ssestream"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 var rules = []string{
@@ -70,7 +76,7 @@ func Chat(messages []Message) *ssestream.Stream[openai.ChatCompletionChunk] {
 	return stream
 }
 
-func TextAssist(req TextAssistRequest) (string, error) {
+func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (string, error) {
 	var client = GetOpenAiClient()
 
 	var systemPrompt string
@@ -118,19 +124,109 @@ func TextAssist(req TextAssistRequest) (string, error) {
 
 	messages := append(userPrompts, openai.SystemMessage(systemPrompt))
 
-	completion, err := client.Chat.Completions.New(context.TODO(), openai.ChatCompletionNewParams{
+	// Use streaming to get usage data with cost
+	stream := client.Chat.Completions.NewStreaming(context.TODO(), openai.ChatCompletionNewParams{
 		Messages: messages,
 		Model:    "meta-llama/llama-3.1-70b-instruct",
+		StreamOptions: openai.ChatCompletionStreamOptionsParam{
+			IncludeUsage: param.NewOpt(true),
+		},
 	})
 
-	if err != nil {
+	var suggestion strings.Builder
+	var usage *openai.CompletionUsage
+
+	// Process the stream
+	for stream.Next() {
+		chunk := stream.Current()
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+			suggestion.WriteString(chunk.Choices[0].Delta.Content)
+		}
+		// Capture usage data when available (check if Usage field exists and is not zero value)
+		if chunk.Usage.PromptTokens > 0 || chunk.Usage.CompletionTokens > 0 {
+			usage = &chunk.Usage
+		}
+	}
+
+	if err := stream.Err(); err != nil {
 		return "", err
 	}
 
-	if len(completion.Choices) == 0 || completion.Choices[0].Message.Content == "" {
+	if suggestion.Len() == 0 {
 		return "", errors.New("failed to get response")
 	}
 
-	suggestion := strings.ReplaceAll(completion.Choices[0].Message.Content, "\\n", "\n")
-	return suggestion, nil
+	suggestionText := strings.ReplaceAll(suggestion.String(), "\\n", "\n")
+
+	log.Println("Usage: ", usage)
+	if usage != nil {
+		log.Println("Usage JSON: ", usage.JSON)
+	}
+
+	// Extract usage data from OpenAI response
+	inputTokens := int64(0)
+	outputTokens := int64(0)
+	totalCost := float64(0)
+
+	if usage != nil {
+		inputTokens = usage.PromptTokens
+		outputTokens = usage.CompletionTokens
+
+		if costField, exists := usage.JSON.ExtraFields["cost"]; exists {
+			costStr := costField.Raw()
+			if cost, err := strconv.ParseFloat(costStr, 64); err == nil {
+				totalCost = cost
+			}
+		}
+	}
+
+	// Create conversation title based on request type and text
+	title := fmt.Sprintf("%s: %s", strings.Title(req.Type), req.Text)
+	if len(title) > 100 {
+		title = title[:97] + "..."
+	}
+
+	// Create conversation
+	now := time.Now().Format(time.RFC3339)
+	conversation := &queries.Conversation{
+		UserId:        userId,
+		Title:         title,
+		TotalRequests: "1",
+		InputTokens:   strconv.FormatInt(inputTokens, 10),
+		OutputTokens:  strconv.FormatInt(outputTokens, 10),
+		Cost:          fmt.Sprintf("%.6f", totalCost),
+		Created:       now,
+		Updated:       now,
+	}
+
+	createdConversation, err := queries.CreateConversation(e, conversation)
+	if err != nil {
+		return "", fmt.Errorf("failed to create conversation: %w", err)
+	}
+
+	// Create user message content
+	userMessage := fmt.Sprintf("Type: %s\nText: %s", req.Type, req.Text)
+	if req.Context != "" {
+		userMessage += fmt.Sprintf("\nContext: %s", req.Context)
+	}
+
+	// Create conversation message
+	message := &queries.ConversationMessage{
+		UserId:          userId,
+		ConversationId:  createdConversation.Id,
+		UserMessage:     userMessage,
+		ResponseMessage: suggestionText,
+		InputTokens:     strconv.FormatInt(inputTokens, 10),
+		OutputTokens:    strconv.FormatInt(outputTokens, 10),
+		Cost:            fmt.Sprintf("%.6f", totalCost),
+		Active:          true,
+		Created:         now,
+	}
+
+	_, err = queries.CreateConversationMessage(e, message)
+	if err != nil {
+		return "", fmt.Errorf("failed to create conversation message: %w", err)
+	}
+
+	return suggestionText, nil
 }

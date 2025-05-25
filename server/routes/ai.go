@@ -91,7 +91,7 @@ func TextAssistHandler(e *core.RequestEvent) error {
 
 	log.Println("Received text assist request: ", req)
 
-	suggestion, err := services.TextAssist(req)
+	suggestion, err := services.TextAssist(e, req, e.Auth.Id)
 	if err != nil {
 		log.Println("Text assist error:", err)
 		return e.Error(http.StatusInternalServerError, "AI processing failed", err)
