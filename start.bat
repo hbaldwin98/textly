@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 if "%~1"=="" (
     echo Starting all components...
     echo Starting Go Server...
-    start cmd /k "cd server && go run main.go serve --https=0.0.0.0:8080"
+    start cmd /k "cd server && go run main.go serve --http=0.0.0.0:8080"
 
     echo Starting Client Application...
     start cmd /k "cd web && npm run dev"
@@ -18,7 +18,7 @@ if "%~1"=="" goto :eof
 
  if /i "%~1"=="server" (
     echo Starting Go Server...
-    start cmd /k "cd server && go run main.go serve --https=0.0.0.0:8080"
+    start cmd /k "cd server && go run main.go serve --http=0.0.0.0:8080"
 ) else if /i "%~1"=="client" (
     echo Starting Client Application...
     start cmd /k "cd web && npm run dev"

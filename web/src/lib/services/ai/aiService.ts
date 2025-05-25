@@ -359,6 +359,11 @@ class AIService {
                 if (data.content) {
                   accumulatedContent += data.content;
                   
+                  // Debug: Log accumulated content to see if it contains newlines
+                  if (accumulatedContent.includes('\n')) {
+                    console.log('Accumulated content has newlines:', JSON.stringify(accumulatedContent));
+                  }
+                  
                   // Update the assistant message content
                   const updatedAssistantMessage = {
                     ...assistantMessage,
