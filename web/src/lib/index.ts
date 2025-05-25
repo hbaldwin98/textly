@@ -7,8 +7,8 @@ export * from './services';
 // Helpers
 export * from './helpers';
 
-// Stores (when separated)
-// export * from './stores';
+// Stores
+export * from './stores';
 
 // Utils (when created)
 // export * from './utils';

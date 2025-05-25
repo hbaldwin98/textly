@@ -1,6 +1,6 @@
-export { aiService, aiStore, storageStats } from './aiService';
+export { aiService, aiStore, storageStats } from './ai.service';
 export type { 
   SuggestionHistory, 
   ChatMessage, 
   ChatConversation 
-} from './aiService'; 
+} from './ai.service'; 

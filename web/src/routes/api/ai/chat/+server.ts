@@ -16,6 +16,9 @@ export const POST: RequestHandler = async ({ request }) => {
                 fetchEventSource('http://localhost:8080/ai/chat', {
                     method: 'POST',
                     body: { messages: messages },
+                    headers: {
+                        'Authorization': `${request.headers.get('Authorization')}`
+                    },
                     onMessage: (data) => {
                         if (data === '[DONE]') {
                             const chunk = JSON.stringify({ done: true }) + '\n';

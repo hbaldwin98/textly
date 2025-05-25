@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { derived } from 'svelte/store';
+import { AuthorizationService } from '../authorization/authorization.service';
 
 export interface SuggestionHistory {
   original: string;
@@ -46,7 +47,7 @@ const SAVE_DELAY = 500; // 500ms delay
 // Function to load state from localStorage
 function loadStateFromStorage(): Partial<AIState> {
   if (!browser) return {};
-  
+
   try {
     const stored = localStorage.getItem(AI_STATE_KEY);
     if (stored) {
@@ -61,19 +62,19 @@ function loadStateFromStorage(): Partial<AIState> {
   } catch (error) {
     console.warn('Failed to load AI state from localStorage:', error);
   }
-  
+
   return {};
 }
 
 // Function to save state to localStorage
 function saveStateToStorage(state: AIState): void {
   if (!browser) return;
-  
+
   // Clear existing timeout
   if (saveTimeout) {
     clearTimeout(saveTimeout);
   }
-  
+
   // Set new timeout for throttled save
   saveTimeout = setTimeout(() => {
     try {
@@ -118,7 +119,7 @@ if (browser) {
 // Derived store for storage statistics
 export const storageStats = derived(aiStore, ($aiStore) => {
   let storageSize = '0 KB';
-  
+
   if (browser) {
     try {
       const persistentState = {
@@ -128,17 +129,17 @@ export const storageStats = derived(aiStore, ($aiStore) => {
       };
       const jsonString = JSON.stringify(persistentState);
       const sizeInBytes = new Blob([jsonString]).size;
-      
-      storageSize = sizeInBytes < 1024 
+
+      storageSize = sizeInBytes < 1024
         ? `${sizeInBytes} B`
         : sizeInBytes < 1024 * 1024
-        ? `${(sizeInBytes / 1024).toFixed(1)} KB`
-        : `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
+          ? `${(sizeInBytes / 1024).toFixed(1)} KB`
+          : `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
     } catch (error) {
       console.warn('Failed to calculate storage size:', error);
     }
   }
-  
+
   return {
     conversations: $aiStore.conversations.length,
     history: $aiStore.history.length,
@@ -153,7 +154,7 @@ class AIService {
   private readonly MAX_CONVERSATIONS = 20;
   private currentAbortController: AbortController | null = null;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): AIService {
     if (!AIService.instance) {
@@ -181,6 +182,7 @@ class AIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
         },
         body: JSON.stringify({
           type,
@@ -196,7 +198,7 @@ class AIService {
       }
 
       const data = await response.json();
-      
+
       this.store.update(state => ({
         ...state,
         suggestions: [data.suggestion],
@@ -231,7 +233,7 @@ class AIService {
       // Create a new abort controller for this request
       this.currentAbortController = new AbortController();
       const signal = this.currentAbortController.signal;
-      
+
       this.store.update(state => ({ ...state, isChatLoading: true, chatError: null }));
 
       // Create user message
@@ -244,7 +246,7 @@ class AIService {
 
       // Prepare conversation for API call and update store
       let conversationForAPI: ChatConversation;
-      
+
       // Get current state synchronously and prepare the conversation
       let currentState: AIState;
       const unsubscribe = this.store.subscribe(state => {
@@ -253,7 +255,7 @@ class AIService {
       unsubscribe();
 
       let targetConversation: ChatConversation;
-      
+
       if (conversationId) {
         const existing = currentState!.conversations.find(c => c.id === conversationId);
         if (!existing) throw new Error('Conversation not found');
@@ -297,6 +299,7 @@ class AIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
         },
         body: JSON.stringify({
           message,
@@ -327,7 +330,7 @@ class AIService {
 
       // Update store with empty assistant message
       this.store.update(state => {
-        const updatedConversations = state.conversations.map(c => 
+        const updatedConversations = state.conversations.map(c =>
           c.id === conversationForAPI.id ? conversationForAPI : c
         );
 
@@ -358,12 +361,7 @@ class AIService {
                 const data = JSON.parse(line);
                 if (data.content) {
                   accumulatedContent += data.content;
-                  
-                  // Debug: Log accumulated content to see if it contains newlines
-                  if (accumulatedContent.includes('\n')) {
-                    console.log('Accumulated content has newlines:', JSON.stringify(accumulatedContent));
-                  }
-                  
+
                   // Update the assistant message content
                   const updatedAssistantMessage = {
                     ...assistantMessage,
@@ -382,7 +380,7 @@ class AIService {
 
                   // Update store with streaming content
                   this.store.update(state => {
-                    const updatedConversations = state.conversations.map(c => 
+                    const updatedConversations = state.conversations.map(c =>
                       c.id === updatedConversation.id ? updatedConversation : c
                     );
 
@@ -390,7 +388,7 @@ class AIService {
                       ...state,
                       currentConversation: state.currentConversation?.id === updatedConversation.id ? updatedConversation : state.currentConversation,
                       conversations: updatedConversations,
-                      isChatLoading: true // Keep loading state true during streaming
+                      isChatLoading: true,
                     };
                   });
 
@@ -421,7 +419,7 @@ class AIService {
         console.log('Chat request was aborted');
         return;
       }
-      
+
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
       this.store.update(state => ({
         ...state,
@@ -480,7 +478,7 @@ class AIService {
       };
 
       // Update conversations array
-      const updatedConversations = state.conversations.map(c => 
+      const updatedConversations = state.conversations.map(c =>
         c.id === conversationId ? updatedConversation : c
       );
 
@@ -497,7 +495,7 @@ class AIService {
       // Create a new abort controller for this request
       this.currentAbortController = new AbortController();
       const signal = this.currentAbortController.signal;
-      
+
       this.store.update(state => ({ ...state, isChatLoading: true, chatError: null }));
 
       // Get current state synchronously
@@ -526,7 +524,7 @@ class AIService {
 
       // Update store with removed messages
       this.store.update(state => {
-        const updatedConversations = state.conversations.map(c => 
+        const updatedConversations = state.conversations.map(c =>
           c.id === conversationId ? updatedConversation : c
         );
 
@@ -593,7 +591,7 @@ class AIService {
     if (browser) {
       localStorage.removeItem(AI_STATE_KEY);
     }
-    
+
     // Reset store to default state
     this.store.set({
       suggestions: [],
@@ -609,7 +607,7 @@ class AIService {
 
   public exportData(): string | null {
     if (!browser) return null;
-    
+
     try {
       const stored = localStorage.getItem(AI_STATE_KEY);
       return stored;
@@ -621,10 +619,10 @@ class AIService {
 
   public importData(data: string): boolean {
     if (!browser) return false;
-    
+
     try {
       const parsed = JSON.parse(data);
-      
+
       // Validate the data structure
       if (parsed && typeof parsed === 'object') {
         const validatedState = {
@@ -632,21 +630,21 @@ class AIService {
           conversations: Array.isArray(parsed.conversations) ? parsed.conversations.slice(0, this.MAX_CONVERSATIONS) : [],
           currentConversation: parsed.currentConversation || null,
         };
-        
+
         localStorage.setItem(AI_STATE_KEY, JSON.stringify(validatedState));
-        
+
         // Update the store
         this.store.update(state => ({
           ...state,
           ...validatedState
         }));
-        
+
         return true;
       }
     } catch (error) {
       console.warn('Failed to import AI data:', error);
     }
-    
+
     return false;
   }
 
@@ -655,7 +653,7 @@ class AIService {
     if (this.currentAbortController) {
       this.currentAbortController.abort();
       this.currentAbortController = null;
-      
+
       // Update store to reflect stopped state
       this.store.update(state => ({
         ...state,

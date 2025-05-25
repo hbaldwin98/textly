@@ -1,6 +1,9 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { AuthorizationService } from '$lib/services/authorization/authorization.service';
+  import { authStore } from '$lib/stores/auth.store';
   
   // Props
   interface Props {
@@ -17,6 +20,14 @@
   let isOpen = $state(false);
   let isHovering = $state(false);
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  
+  // Auth state - only initialize in browser
+  let authService: AuthorizationService | null = null;
+  
+  // Use reactive auth store
+  let authState = $derived($authStore);
+  let isLoggedIn = $derived(authState.isLoggedIn);
+  let userEmail = $derived(authState.user?.email || '');
   
   // Width options array for the slider
   const widthOptions = ['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl', 'full'] as const;
@@ -60,7 +71,23 @@
     }
   }
   
+  async function handleLogout() {
+    if (authService) {
+      await authService.logout();
+    }
+    goto('/auth');
+  }
+  
+  function handleLogin() {
+    goto('/auth');
+  }
+  
   onMount(() => {
+    // Initialize the auth service in the browser
+    if (browser) {
+      authService = AuthorizationService.getInstance();
+    }
+    
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -200,6 +227,45 @@
       </div>
     {/if}
     
+    <!-- User Section -->
+    <div class="p-4 border-t border-gray-200 dark:border-zinc-800">
+      <h3 class="text-sm font-medium text-gray-700 dark:text-zinc-300 mb-3">Account</h3>
+      {#if isLoggedIn}
+        <div class="space-y-2">
+          <div class="px-3 py-2 bg-gray-100 dark:bg-zinc-800 rounded text-sm">
+            <div class="text-gray-600 dark:text-zinc-400 text-xs">Signed in as</div>
+            <div class="text-gray-900 dark:text-zinc-100 font-medium truncate">{userEmail}</div>
+          </div>
+          <button
+            class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+            onclick={handleLogout}
+            title="Sign Out"
+            aria-label="Sign Out"
+            role="button"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+              <path d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+            </svg>
+            Sign Out
+          </button>
+        </div>
+      {:else}
+        <button
+          class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+          onclick={handleLogin}
+          title="Sign In"
+          aria-label="Sign In"
+          role="button"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
+          </svg>
+          Sign In
+        </button>
+      {/if}
+    </div>
+
     <!-- Settings Section (at bottom) -->
     <div class="p-4 border-t border-gray-200 dark:border-zinc-800">
       <h3 class="text-sm font-medium text-gray-700 dark:text-zinc-300 mb-3">Settings</h3>
