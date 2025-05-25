@@ -34,6 +34,10 @@ type EditConversationRequest struct {
 	NewMessage     string `json:"new_message"`
 }
 
+type DeactivateConversationRequest struct {
+	ConversationId string `json:"conversation_id"`
+}
+
 type ConversationResponse struct {
 	Id            string                        `json:"id"`
 	Title         string                        `json:"title"`
@@ -65,6 +69,7 @@ func RegisterConversationRoutes(s *core.ServeEvent) *router.RouterGroup[*core.Re
 	conversationGroup.OPTIONS("/start", conversationOptionsHandler)
 	conversationGroup.OPTIONS("/continue", conversationOptionsHandler)
 	conversationGroup.OPTIONS("/edit", conversationOptionsHandler)
+	conversationGroup.OPTIONS("/deactivate", conversationOptionsHandler)
 	conversationGroup.OPTIONS("/{id}", conversationOptionsHandler)
 	conversationGroup.OPTIONS("/", conversationOptionsHandler)
 
@@ -73,6 +78,7 @@ func RegisterConversationRoutes(s *core.ServeEvent) *router.RouterGroup[*core.Re
 	conversationGroup.POST("/start", StartConversationHandler)
 	conversationGroup.POST("/continue", ContinueConversationHandler)
 	conversationGroup.POST("/edit", EditConversationHandler)
+	conversationGroup.POST("/deactivate", DeactivateConversationHandler)
 	conversationGroup.GET("/{id}", GetConversationHandler)
 	conversationGroup.GET("/", GetConversationsHandler)
 
@@ -114,6 +120,7 @@ func StartConversationHandler(e *core.RequestEvent) error {
 		InputTokens:   "0",
 		OutputTokens:  "0",
 		Cost:          "0.000000",
+		Active:        true,
 		Created:       now,
 		Updated:       now,
 	}
@@ -334,6 +341,43 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 	return nil
 }
 
+func DeactivateConversationHandler(e *core.RequestEvent) error {
+	setConversationCORSHeaders(e)
+
+	var req DeactivateConversationRequest
+	bodyBytes, err := io.ReadAll(e.Request.Body)
+	if err != nil {
+		return e.Error(http.StatusBadRequest, "Failed to read request body", err)
+	}
+
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		return e.Error(http.StatusBadRequest, "Invalid request body", err)
+	}
+
+	userId := e.Auth.Id
+
+	// Verify conversation exists and belongs to user
+	conversation, err := queries.GetConversationById(e, req.ConversationId)
+	if err != nil {
+		return e.Error(http.StatusNotFound, "Conversation not found", err)
+	}
+
+	if conversation.UserId != userId {
+		return e.Error(http.StatusForbidden, "Access denied", nil)
+	}
+
+	// Deactivate the conversation
+	err = queries.DeactivateConversation(e, req.ConversationId)
+	if err != nil {
+		return e.Error(http.StatusInternalServerError, "Failed to deactivate conversation", err)
+	}
+
+	return e.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Conversation deactivated successfully",
+	})
+}
+
 func GetConversationHandler(e *core.RequestEvent) error {
 	setConversationCORSHeaders(e)
 
@@ -406,10 +450,11 @@ func GetConversationsHandler(e *core.RequestEvent) error {
 	var conversations []*queries.Conversation
 	var err error
 
+	// Only get active conversations
 	if conversationType != "" {
-		conversations, err = queries.GetConversationsByUserIdAndType(e, userId, conversationType, includeMessages == "true")
+		conversations, err = queries.GetActiveConversationsByUserIdAndType(e, userId, conversationType, includeMessages == "true")
 	} else {
-		conversations, err = queries.GetConversationsByUserId(e, userId, includeMessages == "true")
+		conversations, err = queries.GetActiveConversationsByUserId(e, userId, includeMessages == "true")
 	}
 
 	if err != nil {

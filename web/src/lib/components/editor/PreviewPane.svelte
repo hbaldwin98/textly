@@ -1,39 +1,37 @@
 <script lang="ts">
-  import { marked } from 'marked';
-  import { onMount } from 'svelte';
-  
+  import { marked } from "marked";
+  import { onMount } from "svelte";
+
   // Configure marked options
   marked.setOptions({
-    breaks: true, // Convert line breaks to <br>
-    gfm: true, // GitHub Flavored Markdown
-    async: false // Disable async rendering for now
+    breaks: true,
+    gfm: true,
+    async: false,
   });
-  
-  // Props
+
   interface Props {
     content: string;
     class?: string;
   }
-  
-  let { content, class: className = '' }: Props = $props();
-  
-  // Reactive statement to render markdown
+
+  let { content, class: className = "" }: Props = $props();
+
   let renderedHtml = $derived(marked(content));
-  
-  // Initialize on mount
+
   onMount(() => {
-    // Force initial render
     renderedHtml = marked(content);
   });
-  
-  // Watch for content changes and re-render using $effect
+
   $effect(() => {
     renderedHtml = marked(content);
   });
 </script>
 
-<div class="h-full w-full bg-white dark:bg-zinc-950 overflow-auto px-8 pt-0 pb-8">
-  <div class="prose prose-gray dark:prose-invert max-w-none pt-4
+<div
+  class="h-full w-full bg-white dark:bg-zinc-950 overflow-auto px-8 pt-0 pb-8"
+>
+  <div
+    class="prose prose-gray dark:prose-invert max-w-none pt-4
                 prose-base
                 prose-headings:font-semibold prose-headings:tracking-tight
                 prose-h1:text-2xl prose-h1:border-b prose-h1:border-gray-200 prose-h1:pb-2 prose-h1:mb-4
@@ -51,4 +49,4 @@
   >
     {@html renderedHtml}
   </div>
-</div> 
+</div>

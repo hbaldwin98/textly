@@ -26,6 +26,7 @@ func CreateConversation(e *core.RequestEvent, conversation *Conversation) (*Conv
 	record.Set("input_tokens", conversation.InputTokens)
 	record.Set("output_tokens", conversation.OutputTokens)
 	record.Set("cost", conversation.Cost)
+	record.Set("active", conversation.Active)
 	record.Set("created", conversation.Created)
 	record.Set("updated", conversation.Updated)
 
@@ -42,13 +43,14 @@ func CreateConversation(e *core.RequestEvent, conversation *Conversation) (*Conv
 		InputTokens:   conversation.InputTokens,
 		OutputTokens:  conversation.OutputTokens,
 		Cost:          conversation.Cost,
+		Active:        conversation.Active,
 		Created:       conversation.Created,
 		Updated:       conversation.Updated,
 	}, nil
 }
 
 func GetConversationById(e *core.RequestEvent, id string) (*Conversation, error) {
-	query := e.App.DB().Select("id", "user", "title", "type", "total_requests", "input_tokens", "output_tokens", "cost", "created", "updated").From("conversations").Where(dbx.HashExp{"id": id})
+	query := e.App.DB().Select("id", "user", "title", "type", "total_requests", "input_tokens", "output_tokens", "cost", "active", "created", "updated").From("conversations").Where(dbx.HashExp{"id": id})
 
 	var conversation Conversation
 	if err := query.One(&conversation); err != nil {
@@ -292,5 +294,67 @@ func UpdateConversationTotals(e *core.RequestEvent, conversationId string, addit
 	}
 
 	_, err = UpdateConversation(e, fields, dbx.HashExp{"id": conversationId})
+	return err
+}
+
+func GetActiveConversationsByUserId(e *core.RequestEvent, userId string, includeMessages bool) ([]*Conversation, error) {
+	query := e.App.DB().Select("id", "user", "title", "type", "total_requests", "input_tokens", "output_tokens", "cost", "active", "created", "updated").
+		From("conversations").
+		Where(dbx.HashExp{"user": userId, "active": true}).
+		OrderBy("created DESC")
+
+	var conversations []*Conversation
+	if err := query.All(&conversations); err != nil {
+		return nil, err
+	}
+
+	conversationMessages := make([]ConversationMessage, 0)
+	for _, conversation := range conversations {
+		if includeMessages {
+			messages, err := GetConversationMessagesByConversationId(e, conversation.Id)
+			if err != nil {
+				return nil, err
+			}
+			conversationMessages = append(conversationMessages, messages...)
+		}
+		conversation.Messages = conversationMessages
+	}
+
+	return conversations, nil
+}
+
+func GetActiveConversationsByUserIdAndType(e *core.RequestEvent, userId string, conversationType string, includeMessages bool) ([]*Conversation, error) {
+	query := e.App.DB().Select("id", "user", "title", "type", "total_requests", "input_tokens", "output_tokens", "cost", "active", "created", "updated").
+		From("conversations").
+		Where(dbx.HashExp{"user": userId, "type": conversationType, "active": true}).
+		OrderBy("created DESC")
+
+	var conversations []*Conversation
+	if err := query.All(&conversations); err != nil {
+		return nil, err
+	}
+
+	conversationMessages := make([]ConversationMessage, 0)
+	for _, conversation := range conversations {
+		if includeMessages {
+			messages, err := GetConversationMessagesByConversationId(e, conversation.Id)
+			if err != nil {
+				return nil, err
+			}
+			conversationMessages = append(conversationMessages, messages...)
+		}
+		conversation.Messages = conversationMessages
+	}
+
+	return conversations, nil
+}
+
+func DeactivateConversation(e *core.RequestEvent, conversationId string) error {
+	fields := map[string]interface{}{
+		"active":  false,
+		"updated": time.Now().Format(time.RFC3339),
+	}
+
+	_, err := UpdateConversation(e, fields, dbx.HashExp{"id": conversationId})
 	return err
 }

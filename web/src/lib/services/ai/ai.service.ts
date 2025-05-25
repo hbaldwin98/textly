@@ -928,12 +928,40 @@ class AIService {
     }
   }
 
-  public deleteConversation(conversationId: string): void {
-    this.store.update(state => ({
-      ...state,
-      conversations: state.conversations.filter(c => c.id !== conversationId),
-      currentConversation: state.currentConversation?.id === conversationId ? null : state.currentConversation
-    }));
+  public async deleteConversation(conversationId: string): Promise<void> {
+    try {
+      // Call the deactivate endpoint
+      const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080'}/conversations/deactivate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
+        },
+        body: JSON.stringify({
+          conversation_id: conversationId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to deactivate conversation');
+      }
+
+      // Remove from local store only after successful API call
+      this.store.update(state => ({
+        ...state,
+        conversations: state.conversations.filter(c => c.id !== conversationId),
+        currentConversation: state.currentConversation?.id === conversationId ? null : state.currentConversation
+      }));
+
+    } catch (err) {
+      console.error('Failed to deactivate conversation:', err);
+      this.store.update(state => ({
+        ...state,
+        chatError: err instanceof Error ? err.message : 'Failed to deactivate conversation'
+      }));
+      throw err;
+    }
   }
 
   // Existing methods

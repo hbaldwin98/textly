@@ -2,6 +2,7 @@ package routes
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -57,7 +58,12 @@ func ChatHandler(e *core.RequestEvent) error {
 	// If conversation ID is provided, this is a legacy streaming request
 	// For now, just handle it as before
 	stream := services.Chat(req.Messages)
-	return handleStream(e, stream)
+	if err := handleStream(e, stream); err != nil {
+		log.Println("Stream error: ", err)
+		return e.Error(http.StatusInternalServerError, "AI processing failed", err)
+	}
+
+	return nil
 }
 
 func setStreamHeaders(e *core.RequestEvent) {
@@ -109,7 +115,19 @@ func TextAssistHandler(e *core.RequestEvent) error {
 }
 
 func handleStream(e *core.RequestEvent, stream *ssestream.Stream[openai.ChatCompletionChunk]) error {
+	if stream == nil {
+		return e.Error(http.StatusInternalServerError, "AI processing failed", errors.New("stream is nil"))
+	}
+
+	if stream.Err() != nil {
+		return stream.Err()
+	}
+
 	for stream.Next() {
+		if stream.Err() != nil {
+			return stream.Err()
+		}
+
 		chunk := stream.Current()
 		content := chunk.Choices[0].Delta.Content
 

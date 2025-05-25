@@ -9,6 +9,7 @@ type Conversation struct {
 	InputTokens   string                `db:"input_tokens"`
 	OutputTokens  string                `db:"output_tokens"`
 	Cost          string                `db:"cost"`
+	Active        bool                  `db:"active"`
 	Created       string                `db:"created"`
 	Updated       string                `db:"updated"`
 	Messages      []ConversationMessage `db:"-"`

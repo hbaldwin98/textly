@@ -81,7 +81,6 @@
     }
   }
 
-  // Function to get the latest response from a conversation
   function getLatestResponse(conversation: Conversation): string {
     if (conversation.messages && conversation.messages.length > 0) {
       const lastMessage = conversation.messages[conversation.messages.length - 1];
@@ -90,7 +89,6 @@
     return '';
   }
 
-  // Combine all conversations and sort by date
   $: allConversations = [
     ...aiState.improvementConversations.map(c => ({ ...c, type: 'improvement' })),
     ...aiState.synonymsConversations.map(c => ({ ...c, type: 'synonyms' })),

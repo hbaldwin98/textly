@@ -1,9 +1,7 @@
 <script lang="ts">
   import { aiService, aiStore } from "$lib/services/ai";
 
-  // Use Svelte's reactive store syntax for better reactivity
   $: aiState = $aiStore;
-
   let showConfirmClear = false;
 
   function confirmClear() {

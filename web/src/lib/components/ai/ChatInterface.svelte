@@ -228,8 +228,13 @@
     await aiService.loadConversation(conversationId);
   }
 
-  function deleteConversation(conversationId: string) {
-    aiService.deleteConversation(conversationId);
+  async function deleteConversation(conversationId: string) {
+    try {
+      await aiService.deleteConversation(conversationId);
+    } catch (err) {
+      console.error('Failed to delete conversation:', err);
+      // Error is already handled in the service and shown in the UI
+    }
   }
 
   // Remove context menu state and functions
