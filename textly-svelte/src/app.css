@@ -10,13 +10,13 @@
   }
   
   /* Scale up on high-DPI displays */
-  @media (min-resolution: 2dppx) {
+  @media (min-resolution: 1dppx) {
     html {
       font-size: 18px;
     }
   }
   
-  @media (min-resolution: 3dppx) {
+  @media (min-resolution: 2dppx) {
     html {
       font-size: 20px;
     }

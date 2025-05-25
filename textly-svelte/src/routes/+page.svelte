@@ -1,16 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
-  import Sidebar from '$lib/Sidebar.svelte';
-  import EditorPane from '$lib/EditorPane.svelte';
-  import PreviewPane from '$lib/PreviewPane.svelte';
-  import ImmersivePane from '$lib/ImmersivePane.svelte';
-  import Splitter from '$lib/Splitter.svelte';
+  import { 
+    Sidebar, 
+    EditorPane, 
+    PreviewPane, 
+    ImmersivePane, 
+    Splitter, 
+    AIPanel 
+  } from '$lib';
   
   // Reactive state
   let viewMode = $state('split'); // 'split', 'editor', 'preview', 'focus'
   let isSpellcheckEnabled = $state(true);
   let editorContent = $state('');
+  let isAISidebarOpen = $state(false);
   
   // Load content and view mode from localStorage on mount
   onMount(() => {
@@ -43,10 +47,20 @@ This is a **markdown editor** with *live preview* built with **Svelte**!
 - **Spellcheck support** (try typing "teh" or "helo")
 - **Dark mode** with easy toggle
 - **🎯 Immersive Focus Mode** - Distraction-free writing experience!
+- **🤖 AI Assistant** - Get writing help, suggestions, and have conversations!
+
+### AI Assistant Features
+
+The new **AI Assistant** provides:
+- 📝 **Quick Actions** - Right-click selected text for instant improvements, synonyms, and descriptions
+- 💬 **Chat Interface** - Have full conversations with the AI for writing help, research, and brainstorming
+- 🧠 **Context Retention** - The AI remembers your conversation history for better assistance
+- ⚡ **Smart Suggestions** - Get contextual writing improvements and alternatives
+- 🎯 **Writing Focus** - Specialized prompts for editing and content creation
 
 ### Focus Mode Features
 
-The new **Focus Mode** provides:
+The **Focus Mode** provides:
 - 📝 **Centered writing area** with optimal line length for readability
 - 🎨 **Clean, minimal interface** with hidden distractions  
 - ⚡ **Quick toggle** between edit and preview with \`Ctrl+E\`
@@ -78,6 +92,13 @@ function createFocusMode() {
 - **Ctrl/Cmd + 4**: **Focus mode** 🎯
 - **Ctrl/Cmd + S**: Toggle spellcheck
 - **Ctrl + E** (in Focus mode): Toggle edit/preview
+
+### AI Assistant Usage
+
+- **Right-click** selected text for quick AI actions
+- **Click the AI button** in the top-right to open the assistant panel
+- **Switch between tabs** for quick actions vs. full chat
+- **Start conversations** to get help with writing, research, or brainstorming
 
 ---
 
@@ -161,52 +182,66 @@ Happy writing! ✨`;
 </script>
 
 <div class="h-screen bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 dark:from-zinc-950 dark:via-zinc-950 dark:to-zinc-950">
-  <Sidebar 
-    {viewMode} 
-    {isSpellcheckEnabled} 
-    onViewModeChange={handleViewModeChange}
-    onSpellcheckToggle={handleSpellcheckToggle}
-    currentWidth={contentWidth}
-    onWidthChange={handleContentWidthChange}
-  />
-  
-  <div class="h-full overflow-hidden">
-    {#if viewMode === 'editor'}
-      <EditorPane 
-        content={editorContent}
-        spellcheck={isSpellcheckEnabled}
-        onContentChange={handleContentChange}
-        class="w-full h-full"
-      />
-    {:else if viewMode === 'preview'}
-      <PreviewPane 
-        content={editorContent}
-        class="w-full h-full"
-      />
-    {:else if viewMode === 'focus'}
-      <ImmersivePane 
-        content={editorContent}
-        onContentChange={handleContentChange}
-        maxWidth="5xl"
+  <div class="flex h-full relative">
+    <!-- Main Content -->
+    <div class="flex-1 transition-all duration-300 relative z-10" class:mr-80={isAISidebarOpen}>
+      <Sidebar 
+        {viewMode} 
+        {isSpellcheckEnabled} 
+        onViewModeChange={handleViewModeChange}
+        onSpellcheckToggle={handleSpellcheckToggle}
         currentWidth={contentWidth}
         onWidthChange={handleContentWidthChange}
       />
-    {:else}
-      <!-- Split view -->
-      <div class="flex h-full w-full">
-        <EditorPane 
-          content={editorContent}
-          spellcheck={isSpellcheckEnabled}
-          onContentChange={handleContentChange}
-          class="transition-none flex-shrink-0"
-          style="width: {leftPaneWidth}%"
-        />
-        <Splitter onWidthChange={handleSplitterWidthChange} currentWidth={leftPaneWidth} />
-        <PreviewPane 
-          content={editorContent}
-          class="flex-1 min-w-0"
-        />
+      
+      <div class="h-full overflow-hidden">
+        {#if viewMode === 'editor'}
+          <EditorPane 
+            content={editorContent}
+            spellcheck={isSpellcheckEnabled}
+            onContentChange={handleContentChange}
+            class="w-full h-full"
+          />
+        {:else if viewMode === 'preview'}
+          <PreviewPane 
+            content={editorContent}
+            class="w-full h-full"
+          />
+        {:else if viewMode === 'focus'}
+          <ImmersivePane 
+            content={editorContent}
+            onContentChange={handleContentChange}
+            maxWidth="5xl"
+            currentWidth={contentWidth}
+          />
+        {:else}
+          <!-- Split view -->
+          <div class="flex h-full w-full">
+            <EditorPane 
+              content={editorContent}
+              spellcheck={isSpellcheckEnabled}
+              onContentChange={handleContentChange}
+              class="transition-none flex-shrink-0"
+              style="width: {leftPaneWidth}%"
+            />
+            <Splitter onWidthChange={handleSplitterWidthChange} currentWidth={leftPaneWidth} />
+            <PreviewPane 
+              content={editorContent}
+              class="flex-1 min-w-0"
+            />
+          </div>
+        {/if}
       </div>
-    {/if}
+    </div>
+
+    <!-- AI Suggestions Sidebar -->
+    <div class="absolute right-0 top-0 h-full z-20">
+      <AIPanel
+        onSuggestionAccept={(suggestion) => {
+          // TODO: Implement suggestion insertion
+          console.log('Suggestion accepted:', suggestion);
+        }}
+      />
+    </div>
   </div>
 </div>

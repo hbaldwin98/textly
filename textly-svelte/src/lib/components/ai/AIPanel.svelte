@@ -1,0 +1,189 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import ContextMenu from "./ContextMenu.svelte";
+  import QuickActions from "./QuickActions.svelte";
+  import ChatInterface from "./ChatInterface.svelte";
+
+  export let onSuggestionAccept: (suggestion: string) => void = () => {};
+  export let isOpen = false;
+
+  // State
+  let selectedText = "";
+  let showSuggestionButton = false;
+  let buttonPosition = { x: 0, y: 0 };
+  let activeTab: "quick" | "chat" = "quick";
+
+  onMount(() => {
+    // Set up event listeners for text selection and context menu
+    function setupEventListeners() {
+      window.addEventListener("mouseup", handleTextSelection);
+      window.addEventListener("keyup", handleTextSelection);
+      window.addEventListener("contextmenu", handleContextMenu);
+      window.addEventListener("click", handleClickOutside);
+    }
+
+    // Initial setup
+    setupEventListeners();
+
+    return () => {
+      // Clean up event listeners
+      window.removeEventListener("mouseup", handleTextSelection);
+      window.removeEventListener("keyup", handleTextSelection);
+      window.removeEventListener("contextmenu", handleContextMenu);
+      window.removeEventListener("click", handleClickOutside);
+    };
+  });
+
+  // Function to handle text selection
+  function handleTextSelection() {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim()) {
+      selectedText = selection.toString().trim();
+    } else {
+      selectedText = "";
+      showSuggestionButton = false;
+    }
+  }
+
+  // Function to handle context menu
+  function handleContextMenu(event: MouseEvent) {
+    // Check if the event is within an editor area
+    const target = event.target as Element;
+    const isInEditor = target.closest(
+      ".milkdown-immersive, .cm-editor, .cm-content"
+    );
+
+    if (!isInEditor) return; // Let non-editor context menus proceed normally
+
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim()) {
+      event.preventDefault(); // Only prevent default when text is selected
+      selectedText = selection.toString().trim();
+
+      // Get the selection's bounding rectangle
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      // Position the menu to the left of the selection
+      buttonPosition = {
+        x: rect.left - 10, // 10px to the left of the selection
+        y: rect.top - 10, // 10px above the selection
+      };
+
+      showSuggestionButton = true;
+      // Switch to quick actions tab when context menu is used
+      activeTab = "quick";
+      isOpen = true;
+    }
+    // If no text is selected, let the native context menu show
+  }
+
+  // Function to hide suggestion button when clicking outside
+  function handleClickOutside(_: MouseEvent) {
+    if (showSuggestionButton) {
+      showSuggestionButton = false;
+    }
+  }
+</script>
+
+<!-- Floating Suggestion Button -->
+{#if showSuggestionButton && selectedText}
+  <ContextMenu
+    {selectedText}
+    {buttonPosition}
+    onClose={() => (showSuggestionButton = false)}
+  />
+{/if}
+
+<!-- Toggle Button -->
+<button
+  class="fixed top-4 right-4 w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-600 dark:text-gray-300 transition-colors"
+  on:click={() => (isOpen = !isOpen)}
+  title="AI Assistant"
+  aria-label="AI Assistant"
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    class="h-5 w-5"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
+    <path
+      fill-rule="evenodd"
+      d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+      clip-rule="evenodd"
+    />
+  </svg>
+</button>
+
+<!-- Sidebar -->
+<div
+  class="w-80 h-full bg-gray-100 dark:bg-zinc-900 border-l border-gray-200 dark:border-zinc-800 overflow-hidden transition-all duration-300 ease-in-out transform"
+  class:translate-x-0={isOpen}
+  class:translate-x-full={!isOpen}
+>
+  <div class="p-4 h-full flex flex-col">
+    <!-- Header with tabs -->
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+        AI Assistant
+      </h3>
+      <button
+        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        on:click={() => (isOpen = false)}
+        aria-label="Close"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="flex mb-4 bg-gray-200 dark:bg-zinc-800 rounded-lg p-1">
+      <button
+        class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
+        class:bg-white={activeTab === "quick"}
+        class:dark:bg-zinc-700={activeTab === "quick"}
+        class:text-blue-600={activeTab === "quick"}
+        class:dark:text-blue-400={activeTab === "quick"}
+        class:text-gray-600={activeTab !== "quick"}
+        class:dark:text-gray-400={activeTab !== "quick"}
+        on:click={() => (activeTab = "quick")}
+      >
+        Quick Actions
+      </button>
+      <button
+        class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
+        class:bg-white={activeTab === "chat"}
+        class:dark:bg-zinc-700={activeTab === "chat"}
+        class:text-blue-600={activeTab === "chat"}
+        class:dark:text-blue-400={activeTab === "chat"}
+        class:text-gray-600={activeTab !== "chat"}
+        class:dark:text-gray-400={activeTab !== "chat"}
+        on:click={() => (activeTab = "chat")}
+      >
+        Chat
+      </button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="flex-1 min-h-0">
+      <div class="h-full" class:hidden={activeTab !== 'quick'}>
+        <QuickActions {onSuggestionAccept} />
+      </div>
+      <div class="h-full" class:hidden={activeTab !== 'chat'}>
+        <ChatInterface />
+      </div>
+    </div>
+  </div>
+</div>

@@ -6,60 +6,56 @@
   import { clipboard } from "@milkdown/plugin-clipboard";
   import { listener, listenerCtx } from "@milkdown/plugin-listener";
   import { nord } from "@milkdown/theme-nord";
-  import { marked } from 'marked';
-  import { onMount } from 'svelte';
+  import { marked } from "marked";
+  import { onMount } from "svelte";
 
   // Props
-  export let content = '';
+  export let content = "";
   export let onContentChange = (newContent: string) => {};
-  export let maxWidth: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full' = '2xl';
+  export let maxWidth:
+    | "sm"
+    | "md"
+    | "lg"
+    | "xl"
+    | "2xl"
+    | "3xl"
+    | "4xl"
+    | "5xl"
+    | "6xl"
+    | "7xl"
+    | "full" = "2xl";
   export let currentWidth = maxWidth;
-  export let onWidthChange: (width: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full') => void = () => {};
 
   let showPreview = false;
   let editorElement: HTMLElement;
   let editorInstance: any = null;
-
-  // Width options array for the slider
-  const widthOptions = ['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl', 'full'] as const;
-  const widthLabels = ['XS', 'SM', 'MD', 'LG', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', 'Full'];
-  
-  // Current width state
-  $: currentWidthIndex = widthOptions.indexOf(currentWidth);
-
   // Get the Tailwind class for max width
   function getMaxWidthClass(width: string): string {
     switch (width) {
-      case 'sm': return 'max-w-sm';     // ~384px - Very narrow, like mobile
-      case 'md': return 'max-w-md';     // ~448px - Narrow
-      case 'lg': return 'max-w-lg';     // ~512px - Compact
-      case 'xl': return 'max-w-xl';     // ~576px - Standard
-      case '2xl': return 'max-w-2xl';   // ~672px - Comfortable (default)
-      case '3xl': return 'max-w-3xl';   // ~768px - Wide
-      case '4xl': return 'max-w-4xl';   // ~896px - Very wide
-      case '5xl': return 'max-w-5xl';   // ~1024px - Extra wide
-      case '6xl': return 'max-w-6xl';   // ~1152px - Ultra wide
-      case '7xl': return 'max-w-7xl';   // ~1280px - Maximum wide
-      case 'full': return 'max-w-full'; // 100% - Full width
-      default: return 'max-w-2xl';
-    }
-  }
-
-  // Get pixel width description
-  function getWidthDescription(width: string): string {
-    switch (width) {
-      case 'sm': return '384px';
-      case 'md': return '448px';
-      case 'lg': return '512px';
-      case 'xl': return '576px';
-      case '2xl': return '672px';
-      case '3xl': return '768px';
-      case '4xl': return '896px';
-      case '5xl': return '1024px';
-      case '6xl': return '1152px';
-      case '7xl': return '1280px';
-      case 'full': return '100%';
-      default: return '672px';
+      case "sm":
+        return "max-w-sm"; // ~384px - Very narrow, like mobile
+      case "md":
+        return "max-w-md"; // ~448px - Narrow
+      case "lg":
+        return "max-w-lg"; // ~512px - Compact
+      case "xl":
+        return "max-w-xl"; // ~576px - Standard
+      case "2xl":
+        return "max-w-2xl"; // ~672px - Comfortable (default)
+      case "3xl":
+        return "max-w-3xl"; // ~768px - Wide
+      case "4xl":
+        return "max-w-4xl"; // ~896px - Very wide
+      case "5xl":
+        return "max-w-5xl"; // ~1024px - Extra wide
+      case "6xl":
+        return "max-w-6xl"; // ~1152px - Ultra wide
+      case "7xl":
+        return "max-w-7xl"; // ~1280px - Maximum wide
+      case "full":
+        return "max-w-full"; // 100% - Full width
+      default:
+        return "max-w-2xl";
     }
   }
 
@@ -69,23 +65,21 @@
   }
 
   function getCurrentEditorContent(): string {
-    if (!editorInstance) return '';
+    if (!editorInstance) return "";
     try {
       // This would need to be implemented with Milkdown's action API
       return content; // Fallback for now
     } catch {
-      return '';
+      return "";
     }
   }
 
   function updateEditorContent(newContent: string) {
     if (!editorInstance) return;
     try {
-      // Update editor content - this would use Milkdown's action API
-      // For now, we'll recreate the editor when content changes
       createMilkdownEditor();
     } catch (error) {
-      console.warn('Error updating editor content:', error);
+      console.warn("Error updating editor content:", error);
     }
   }
 
@@ -99,7 +93,7 @@
       })
       .config((ctx) => {
         // Listen for content changes
-        ctx.get(listenerCtx).markdownUpdated((ctx, markdown) => {
+        ctx.get(listenerCtx).markdownUpdated((_, markdown) => {
           onContentChange(markdown);
         });
       })
@@ -111,11 +105,13 @@
       .use(listener)
       .create();
 
-    makeEditor.then((editor) => {
-      editorInstance = editor;
-    }).catch((error) => {
-      console.error('Failed to create Milkdown editor:', error);
-    });
+    makeEditor
+      .then((editor) => {
+        editorInstance = editor;
+      })
+      .catch((error) => {
+        console.error("Failed to create Milkdown editor:", error);
+      });
   }
 
   function editor(dom: HTMLElement) {
@@ -128,13 +124,13 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
+    if ((event.ctrlKey || event.metaKey) && event.key === "e") {
       event.preventDefault();
       togglePreview();
     }
   }
 
-  $: renderedContent = showPreview ? marked(content || '') : '';
+  $: renderedContent = showPreview ? marked(content || "") : "";
 
   onMount(() => {
     return () => {
@@ -147,14 +143,21 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="h-full w-full bg-gray-50 dark:bg-zinc-950 relative flex flex-col">
-  <div class="flex-1 overflow-auto">
-    <div class="{getMaxWidthClass(currentWidth)} mx-auto px-8 py-16 lg:px-12 lg:py-20 xl:px-16 xl:py-24">
+<div class="h-full w-full bg-gray-50 dark:bg-zinc-950 relative">
+  <div class="h-full overflow-auto">
+    <div
+      class="{getMaxWidthClass(
+        currentWidth
+      )} mx-auto px-8 py-16 lg:px-12 lg:py-20 xl:px-16 xl:py-24"
+    >
       {#if showPreview}
         <!-- Preview Mode -->
-        <div class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-8 min-h-[600px]
-                    lg:p-12 lg:min-h-[700px] xl:p-16 xl:min-h-[800px]">
-          <div class="prose prose-lg prose-gray dark:prose-invert max-w-none w-full
+        <div
+          class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-8 min-h-[600px]
+                    lg:p-12 lg:min-h-[700px] xl:p-16 xl:min-h-[800px]"
+        >
+          <div
+            class="prose prose-lg prose-gray dark:prose-invert max-w-none w-full
                       lg:prose-xl xl:prose-2xl
                       prose-headings:font-semibold prose-headings:tracking-tight
                       prose-h1:text-3xl prose-h1:border-b prose-h1:border-gray-200 prose-h1:pb-3 prose-h1:mb-6
@@ -182,15 +185,18 @@
                       dark:prose-h1:border-zinc-800 dark:prose-h2:border-zinc-800
                       dark:prose-blockquote:border-zinc-700 dark:prose-blockquote:text-zinc-400
                       dark:prose-code:bg-zinc-800 dark:prose-code:text-zinc-200
-                      dark:prose-pre:bg-zinc-800 dark:prose-pre:border-zinc-700">
+                      dark:prose-pre:bg-zinc-800 dark:prose-pre:border-zinc-700"
+          >
             {@html renderedContent}
           </div>
         </div>
       {:else}
         <!-- Editor Mode -->
-        <div class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-8 min-h-[600px]
-                    lg:p-12 lg:min-h-[700px] xl:p-16 xl:min-h-[800px]">
-          <div 
+        <div
+          class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-8 min-h-[600px]
+                    lg:p-12 lg:min-h-[700px] xl:p-16 xl:min-h-[800px]"
+        >
+          <div
             use:editor
             class="w-full min-h-[500px] font-serif text-lg leading-relaxed text-gray-900 dark:text-gray-100 milkdown-immersive
                    lg:min-h-[600px] lg:text-xl xl:min-h-[700px] xl:text-2xl"
@@ -201,16 +207,20 @@
   </div>
 
   <!-- Subtle bottom hint -->
-  <div class="text-center py-3 text-xs text-gray-400/50 dark:text-gray-500/50 opacity-0 hover:opacity-100 transition-opacity
-              lg:py-4 lg:text-xs">
-    Press <kbd class="px-1 py-0.5 bg-gray-200/50 dark:bg-gray-700/50 text-gray-700/50 dark:text-gray-300/50 rounded text-xs
-                     lg:px-1.5 lg:py-0.5 lg:text-xs">Ctrl+E</kbd> to toggle between edit and preview
+  <div
+    class="text-center py-3 text-xs text-gray-400/50 dark:text-gray-500/50 opacity-0 hover:opacity-100 transition-opacity
+              lg:py-4 lg:text-xs"
+  >
+    Press <kbd
+      class="px-1 py-0.5 bg-gray-200/50 dark:bg-gray-700/50 text-gray-700/50 dark:text-gray-300/50 rounded text-xs
+                     lg:px-1.5 lg:py-0.5 lg:text-xs">Ctrl+E</kbd
+    > to toggle between edit and preview
   </div>
 </div>
 
 <style>
   :global(.milkdown-immersive) {
-    font-family: 'Inter', 'Georgia', serif !important;
+    font-family: "Inter", "Georgia", serif !important;
     font-size: 1.125rem !important;
     line-height: 1.7 !important;
     width: 100% !important;

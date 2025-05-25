@@ -1,0 +1,1 @@
+export { clipboardService, clipboardStore } from './clipboardService'; 
