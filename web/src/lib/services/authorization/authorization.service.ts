@@ -10,7 +10,7 @@ export class AuthorizationService {
     get user(): AuthRecord { return this.pb.authStore.record as AuthRecord; }
 
     private constructor() {
-        this.pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL);
+        this.pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080');
         
         // PocketBase automatically loads from localStorage by default
         // The auth store will automatically restore the auth state if valid data exists
