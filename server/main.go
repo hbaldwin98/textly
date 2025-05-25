@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"textly/application"
-	//	_ "textly/migrations"
+	_ "textly/migrations"
 )
 
 func main() {

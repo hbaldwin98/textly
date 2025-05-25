@@ -50,9 +50,9 @@ func Chat(messages []Message) *ssestream.Stream[openai.ChatCompletionChunk] {
 	stream := client.Chat.Completions.NewStreaming(context.TODO(), openai.ChatCompletionNewParams{
 		Messages:    getMessages(messages),
 		Temperature: param.NewOpt(0.7),
-		// StreamOptions: openai.ChatCompletionStreamOptionsParam{
-		// 	IncludeUsage: param.NewOpt(true),
-		// },
+		StreamOptions: openai.ChatCompletionStreamOptionsParam{
+			IncludeUsage: param.NewOpt(true),
+		},
 		Model: "meta-llama/llama-3.1-70b-instruct",
 	})
 

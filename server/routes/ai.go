@@ -62,6 +62,7 @@ func handleStream(e *core.RequestEvent, stream *ssestream.Stream[openai.ChatComp
 		chunk := stream.Current()
 		content := chunk.Choices[0].Delta.Content
 
+		log.Println("Usage: ", chunk.Usage)
 		escapedContent := strings.ReplaceAll(content, "\n", "\\n")
 
 		sseData := "data: " + escapedContent + "\n\n"
