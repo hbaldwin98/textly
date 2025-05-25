@@ -21,9 +21,15 @@ type ChatRequest struct {
 
 func RegisterAIRoutes(s *core.ServeEvent) *router.RouterGroup[*core.RequestEvent] {
 	aiGroup := s.Router.Group("/ai")
-	aiGroup.Bind(middleware.AuthMiddleware())
 
+	// Add OPTIONS handlers for CORS preflight (without auth middleware)
+	aiGroup.OPTIONS("/chat", OptionsHandler)
+	aiGroup.OPTIONS("/assist", OptionsHandler)
+
+	// Add auth middleware for actual endpoints
+	aiGroup.Bind(middleware.AuthMiddleware())
 	aiGroup.POST("/chat", ChatHandler)
+	aiGroup.POST("/assist", TextAssistHandler)
 
 	return aiGroup
 }
@@ -55,6 +61,47 @@ func setStreamHeaders(e *core.RequestEvent) {
 	e.Response.Header().Set("Cache-Control", "no-cache")
 	e.Response.Header().Set("Connection", "keep-alive")
 	e.Response.Header().Set("Access-Control-Allow-Origin", "*")
+	e.Response.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	e.Response.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+}
+
+func setCORSHeaders(e *core.RequestEvent) {
+	e.Response.Header().Set("Access-Control-Allow-Origin", "*")
+	e.Response.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	e.Response.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+}
+
+func OptionsHandler(e *core.RequestEvent) error {
+	setCORSHeaders(e)
+	return e.NoContent(http.StatusOK)
+}
+
+func TextAssistHandler(e *core.RequestEvent) error {
+	setCORSHeaders(e)
+
+	var req services.TextAssistRequest
+	bodyBytes, err := io.ReadAll(e.Request.Body)
+	if err != nil {
+		return e.Error(http.StatusBadRequest, "Failed to read request body", err)
+	}
+
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		return e.Error(http.StatusBadRequest, "Invalid request body", err)
+	}
+
+	log.Println("Received text assist request: ", req)
+
+	suggestion, err := services.TextAssist(req)
+	if err != nil {
+		log.Println("Text assist error:", err)
+		return e.Error(http.StatusInternalServerError, "AI processing failed", err)
+	}
+
+	response := services.TextAssistResponse{
+		Suggestion: suggestion,
+	}
+
+	return e.JSON(http.StatusOK, response)
 }
 
 func handleStream(e *core.RequestEvent, stream *ssestream.Stream[openai.ChatCompletionChunk]) error {

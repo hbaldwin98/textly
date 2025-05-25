@@ -80,6 +80,7 @@
                   class="p-1 text-gray-400 hover:text-gray-600 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
                   on:click={() => onSuggestionAccept(suggestion)}
                   title="Accept suggestion"
+                  aria-label="Accept suggestion"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

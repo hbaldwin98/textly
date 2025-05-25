@@ -7,13 +7,14 @@
 
   export let onSuggestionAccept: (suggestion: string) => void = () => {};
   export let isOpen = false;
+  export let context: string;
 
   // State
   let selectedText = "";
   let showSuggestionButton = false;
   let buttonPosition = { x: 0, y: 0 };
   let activeTab: "quick" | "chat" | "settings" = "quick";
-  
+
   // Resize state
   let isResizing = false;
   let startX = 0;
@@ -27,25 +28,28 @@
     isResizing = true;
     startX = event.clientX;
     startWidth = currentWidth;
-    document.addEventListener('mousemove', handleResizeMove);
-    document.addEventListener('mouseup', handleResizeEnd);
-    document.body.style.userSelect = 'none'; // Prevent text selection globally during resize
+    document.addEventListener("mousemove", handleResizeMove);
+    document.addEventListener("mouseup", handleResizeEnd);
+    document.body.style.userSelect = "none"; // Prevent text selection globally during resize
   }
 
   function handleResizeMove(event: MouseEvent) {
     if (!isResizing) return;
     event.preventDefault(); // Prevent text selection
-    
+
     const deltaX = startX - event.clientX;
-    const newWidth = Math.min(Math.max(startWidth + deltaX, minWidth), maxWidth);
+    const newWidth = Math.min(
+      Math.max(startWidth + deltaX, minWidth),
+      maxWidth
+    );
     currentWidth = newWidth;
   }
 
   function handleResizeEnd() {
     isResizing = false;
-    document.removeEventListener('mousemove', handleResizeMove);
-    document.removeEventListener('mouseup', handleResizeEnd);
-    document.body.style.userSelect = ''; // Restore text selection
+    document.removeEventListener("mousemove", handleResizeMove);
+    document.removeEventListener("mouseup", handleResizeEnd);
+    document.body.style.userSelect = ""; // Restore text selection
   }
 
   onMount(() => {
@@ -66,8 +70,8 @@
       window.removeEventListener("keyup", handleTextSelection);
       window.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("click", handleClickOutside);
-      document.removeEventListener('mousemove', handleResizeMove);
-      document.removeEventListener('mouseup', handleResizeEnd);
+      document.removeEventListener("mousemove", handleResizeMove);
+      document.removeEventListener("mouseup", handleResizeEnd);
     };
   });
 
@@ -128,6 +132,7 @@
   <ContextMenu
     {selectedText}
     {buttonPosition}
+    {context}
     onClose={() => (showSuggestionButton = false)}
   />
 {/if}
@@ -172,12 +177,19 @@
   <div
     class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors select-none"
     on:mousedown={handleResizeStart}
+    aria-label="Resize handle"
+    role="button"
+    tabindex="0"
   ></div>
 
   <div class="p-4 h-full flex flex-col">
     <!-- Header with tabs -->
-    <div class="flex items-center justify-between mb-4 border-b border-gray-200 dark:border-zinc-800 pb-4">
-      <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">AI Assistant</h2>
+    <div
+      class="flex items-center justify-between mb-4 border-b border-gray-200 dark:border-zinc-800 pb-4"
+    >
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">
+        AI Assistant
+      </h2>
       <button
         class="text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200"
         on:click={() => (isOpen = false)}
@@ -240,13 +252,13 @@
 
     <!-- Tab Content -->
     <div class="flex-1 min-h-0">
-      <div class="h-full" class:hidden={activeTab !== 'quick'}>
+      <div class="h-full" class:hidden={activeTab !== "quick"}>
         <QuickActions {onSuggestionAccept} />
       </div>
-      <div class="h-full" class:hidden={activeTab !== 'chat'}>
+      <div class="h-full" class:hidden={activeTab !== "chat"}>
         <ChatInterface />
       </div>
-      <div class="h-full" class:hidden={activeTab !== 'settings'}>
+      <div class="h-full" class:hidden={activeTab !== "settings"}>
         <AISettings />
       </div>
     </div>

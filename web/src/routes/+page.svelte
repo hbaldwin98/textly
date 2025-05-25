@@ -236,6 +236,7 @@ Happy writing! ✨`;
     <div class="absolute right-0 top-0 h-full z-20">
       <AIPanel
         bind:isOpen={isAISidebarOpen}
+        context={editorContent}
         onSuggestionAccept={(suggestion) => {
           // TODO: Implement suggestion insertion
           console.log('Suggestion accepted:', suggestion);

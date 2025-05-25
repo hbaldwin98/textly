@@ -174,11 +174,11 @@ class AIService {
     return Math.random().toString(36).substr(2, 9);
   }
 
-  private async makeAIRequest(type: 'improvement' | 'synonyms' | 'description', text: string, context?: string, cursorPosition?: { line: number; column: number }) {
+  private async makeAIRequest(type: 'improvement' | 'synonyms' | 'description', text: string, context?: string) {
     try {
       this.store.update(state => ({ ...state, isLoading: true, error: null }));
 
-      const response = await fetch('/api/ai', {
+      const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080'}/ai/assist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,8 +187,7 @@ class AIService {
         body: JSON.stringify({
           type,
           text,
-          context,
-          cursorPosition
+          context
         }),
       });
 
@@ -294,16 +293,21 @@ class AIService {
         };
       });
 
-      // Send to API
-      const response = await fetch('/api/ai/chat', {
+      // Build messages for the backend API
+      const messages = [
+        ...conversationForAPI.messages.slice(-10, -1), // Last 10 messages excluding the current user message
+        { role: "user", content: message }
+      ];
+
+      // Send to API (directly to Go backend)
+      const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080'}/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
         },
         body: JSON.stringify({
-          message,
-          conversationHistory: conversationForAPI.messages.slice(-10) // Send last 10 messages for context
+          messages: messages
         }),
         signal // Add the abort signal to the fetch request
       });
@@ -342,10 +346,11 @@ class AIService {
         };
       });
 
-      // Handle streaming response
+      // Handle SSE streaming response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let accumulatedContent = '';
+      let buffer = '';
 
       if (reader) {
         try {
@@ -354,51 +359,64 @@ class AIService {
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n').filter(line => line.trim());
+            buffer += chunk;
+            
+            // Process complete SSE events (separated by \n\n)
+            let eventEndIndex;
+            while ((eventEndIndex = buffer.indexOf('\n\n')) !== -1) {
+              const eventData = buffer.slice(0, eventEndIndex);
+              buffer = buffer.slice(eventEndIndex + 2);
+              
+              if (eventData.trim()) {
+                // Parse SSE event
+                const lines = eventData.split('\n');
+                for (const line of lines) {
+                  if (line.startsWith('data: ')) {
+                    const data = line.slice(6); // Remove 'data: ' prefix
+                    
+                    if (data === '[DONE]') {
+                      // Stream is complete
+                      break;
+                    } else {
+                      // Unescape newlines and add content to accumulated content
+                      const unescapedData = data.replace(/\\n/g, '\n');
+                      accumulatedContent += unescapedData;
 
-            for (const line of lines) {
-              try {
-                const data = JSON.parse(line);
-                if (data.content) {
-                  accumulatedContent += data.content;
+                      // Update the assistant message content
+                      const updatedAssistantMessage = {
+                        ...assistantMessage,
+                        content: accumulatedContent
+                      };
 
-                  // Update the assistant message content
-                  const updatedAssistantMessage = {
-                    ...assistantMessage,
-                    content: accumulatedContent
-                  };
+                      // Update conversation with streaming content
+                      const updatedConversation = {
+                        ...conversationForAPI,
+                        messages: [
+                          ...conversationForAPI.messages.slice(0, -1),
+                          updatedAssistantMessage
+                        ],
+                        updatedAt: Date.now()
+                      };
 
-                  // Update conversation with streaming content
-                  const updatedConversation = {
-                    ...conversationForAPI,
-                    messages: [
-                      ...conversationForAPI.messages.slice(0, -1),
-                      updatedAssistantMessage
-                    ],
-                    updatedAt: Date.now()
-                  };
+                      // Update store with streaming content
+                      this.store.update(state => {
+                        const updatedConversations = state.conversations.map(c =>
+                          c.id === updatedConversation.id ? updatedConversation : c
+                        );
 
-                  // Update store with streaming content
-                  this.store.update(state => {
-                    const updatedConversations = state.conversations.map(c =>
-                      c.id === updatedConversation.id ? updatedConversation : c
-                    );
+                        return {
+                          ...state,
+                          currentConversation: state.currentConversation?.id === updatedConversation.id ? updatedConversation : state.currentConversation,
+                          conversations: updatedConversations,
+                          isChatLoading: true,
+                        };
+                      });
 
-                    return {
-                      ...state,
-                      currentConversation: state.currentConversation?.id === updatedConversation.id ? updatedConversation : state.currentConversation,
-                      conversations: updatedConversations,
-                      isChatLoading: true,
-                    };
-                  });
-
-                  // Update conversationForAPI for next iteration
-                  conversationForAPI = updatedConversation;
-                } else if (data.done) {
-                  break;
+                      // Update conversationForAPI for next iteration
+                      conversationForAPI = updatedConversation;
+                    }
+                  }
                 }
-              } catch (parseError) {
-                console.warn('Failed to parse streaming chunk:', parseError);
               }
             }
           }
@@ -549,8 +567,8 @@ class AIService {
   }
 
   // Existing methods
-  public async getImprovement(text: string, context: string, cursorPosition: { line: number; column: number }): Promise<string> {
-    return this.makeAIRequest('improvement', text, context, cursorPosition);
+  public async getImprovement(text: string, context: string): Promise<string> {
+    return this.makeAIRequest('improvement', text, context);
   }
 
   public async getSynonyms(text: string): Promise<string> {
