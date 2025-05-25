@@ -76,6 +76,63 @@ func Chat(messages []Message) *ssestream.Stream[openai.ChatCompletionChunk] {
 	return stream
 }
 
+func ChatWithUsage(messages []Message) (string, int64, int64, float64, error) {
+	var client = GetOpenAiClient()
+
+	// Use streaming to get usage data with cost
+	stream := client.Chat.Completions.NewStreaming(context.TODO(), openai.ChatCompletionNewParams{
+		Messages: getMessages(messages),
+		Model:    "meta-llama/llama-3.1-70b-instruct",
+		StreamOptions: openai.ChatCompletionStreamOptionsParam{
+			IncludeUsage: param.NewOpt(true),
+		},
+	})
+
+	var response strings.Builder
+	var usage *openai.CompletionUsage
+
+	// Process the stream
+	for stream.Next() {
+		chunk := stream.Current()
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+			response.WriteString(chunk.Choices[0].Delta.Content)
+		}
+		// Capture usage data when available
+		if chunk.Usage.PromptTokens > 0 || chunk.Usage.CompletionTokens > 0 {
+			usage = &chunk.Usage
+		}
+	}
+
+	if err := stream.Err(); err != nil {
+		return "", 0, 0, 0, err
+	}
+
+	if response.Len() == 0 {
+		return "", 0, 0, 0, errors.New("failed to get response")
+	}
+
+	responseText := strings.ReplaceAll(response.String(), "\\n", "\n")
+
+	// Extract usage data from OpenAI response
+	inputTokens := int64(0)
+	outputTokens := int64(0)
+	totalCost := float64(0)
+
+	if usage != nil {
+		inputTokens = usage.PromptTokens
+		outputTokens = usage.CompletionTokens
+
+		if costField, exists := usage.JSON.ExtraFields["cost"]; exists {
+			costStr := costField.Raw()
+			if cost, err := strconv.ParseFloat(costStr, 64); err == nil {
+				totalCost = cost
+			}
+		}
+	}
+
+	return responseText, inputTokens, outputTokens, totalCost, nil
+}
+
 func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (string, error) {
 	var client = GetOpenAiClient()
 
@@ -192,6 +249,7 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 		UserId:        userId,
 		Title:         title,
 		TotalRequests: "1",
+		Type:          req.Type,
 		InputTokens:   strconv.FormatInt(inputTokens, 10),
 		OutputTokens:  strconv.FormatInt(outputTokens, 10),
 		Cost:          fmt.Sprintf("%.6f", totalCost),

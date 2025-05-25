@@ -44,6 +44,7 @@ func BindAppHooks(app core.App, loadCerts bool) {
 
 		routes.RegisterAuthRoutes(se)
 		routes.RegisterAIRoutes(se)
+		routes.RegisterConversationRoutes(se)
 
 		// // Load TLS certificate
 		// if loadCerts {

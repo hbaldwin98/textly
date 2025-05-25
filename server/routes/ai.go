@@ -16,7 +16,8 @@ import (
 )
 
 type ChatRequest struct {
-	Messages []services.Message `json:"messages"`
+	Messages       []services.Message `json:"messages"`
+	ConversationId string             `json:"conversation_id,omitempty"`
 }
 
 func RegisterAIRoutes(s *core.ServeEvent) *router.RouterGroup[*core.RequestEvent] {
@@ -52,6 +53,9 @@ func ChatHandler(e *core.RequestEvent) error {
 	}
 
 	log.Println("Received messages: ", req.Messages)
+
+	// If conversation ID is provided, this is a legacy streaming request
+	// For now, just handle it as before
 	stream := services.Chat(req.Messages)
 	return handleStream(e, stream)
 }

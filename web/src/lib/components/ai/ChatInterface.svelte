@@ -5,6 +5,7 @@
     type ChatMessage,
     type ChatConversation,
   } from "$lib/services/ai";
+  import { onMount } from "svelte";
   import { marked } from "marked";
 
   // State
@@ -18,6 +19,11 @@
 
   // Use Svelte's reactive store syntax for better reactivity
   $: aiState = $aiStore;
+
+  // Load conversations on mount
+  onMount(async () => {
+    await aiService.loadConversationsFromBackend();
+  });
 
   // Configure marked options
   marked.setOptions({
@@ -218,8 +224,8 @@
     aiService.createNewConversation();
   }
 
-  function loadConversation(conversationId: string) {
-    aiService.loadConversation(conversationId);
+  async function loadConversation(conversationId: string) {
+    await aiService.loadConversation(conversationId);
   }
 
   function deleteConversation(conversationId: string) {

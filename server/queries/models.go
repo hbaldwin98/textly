@@ -1,15 +1,17 @@
 package queries
 
 type Conversation struct {
-	Id            string `db:"id"`
-	UserId        string `db:"user"`
-	Title         string `db:"title"`
-	TotalRequests string `db:"total_requests"`
-	InputTokens   string `db:"input_tokens"`
-	OutputTokens  string `db:"output_tokens"`
-	Cost          string `db:"cost"`
-	Created       string `db:"created"`
-	Updated       string `db:"updated"`
+	Id            string                `db:"id"`
+	UserId        string                `db:"user"`
+	Title         string                `db:"title"`
+	Type          string                `db:"type"`
+	TotalRequests string                `db:"total_requests"`
+	InputTokens   string                `db:"input_tokens"`
+	OutputTokens  string                `db:"output_tokens"`
+	Cost          string                `db:"cost"`
+	Created       string                `db:"created"`
+	Updated       string                `db:"updated"`
+	Messages      []ConversationMessage `db:"-"`
 }
 
 type ConversationMessage struct {
