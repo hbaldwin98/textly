@@ -280,6 +280,7 @@
                       class="w-full bg-transparent outline-none whitespace-pre-wrap break-words min-h-[1.5em]"
                       role="textbox"
                       aria-multiline="true"
+                      tabindex="0"
                     ></div>
                     <div class="flex justify-end gap-2 mt-2">
                       <button

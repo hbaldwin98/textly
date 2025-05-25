@@ -13,6 +13,40 @@
   let showSuggestionButton = false;
   let buttonPosition = { x: 0, y: 0 };
   let activeTab: "quick" | "chat" | "settings" = "quick";
+  
+  // Resize state
+  let isResizing = false;
+  let startX = 0;
+  let startWidth = 320; // Default width in pixels
+  let currentWidth = startWidth;
+  let minWidth = 280;
+  let maxWidth = 800;
+
+  function handleResizeStart(event: MouseEvent) {
+    event.preventDefault(); // Prevent text selection
+    isResizing = true;
+    startX = event.clientX;
+    startWidth = currentWidth;
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+    document.body.style.userSelect = 'none'; // Prevent text selection globally during resize
+  }
+
+  function handleResizeMove(event: MouseEvent) {
+    if (!isResizing) return;
+    event.preventDefault(); // Prevent text selection
+    
+    const deltaX = startX - event.clientX;
+    const newWidth = Math.min(Math.max(startWidth + deltaX, minWidth), maxWidth);
+    currentWidth = newWidth;
+  }
+
+  function handleResizeEnd() {
+    isResizing = false;
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+    document.body.style.userSelect = ''; // Restore text selection
+  }
 
   onMount(() => {
     // Set up event listeners for text selection and context menu
@@ -32,6 +66,8 @@
       window.removeEventListener("keyup", handleTextSelection);
       window.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("click", handleClickOutside);
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
     };
   });
 
@@ -119,10 +155,20 @@
 
 <!-- Sidebar -->
 <div
-  class="w-80 h-full bg-gray-100 dark:bg-zinc-900 border-l border-gray-200 dark:border-zinc-800 overflow-hidden transition-all duration-300 ease-in-out transform"
+  class="h-full bg-gray-100 dark:bg-zinc-900 border-l border-gray-200 dark:border-zinc-800 overflow-hidden transform"
+  class:transition-transform={!isResizing}
+  class:duration-300={!isResizing}
+  class:ease-in-out={!isResizing}
   class:translate-x-0={isOpen}
   class:translate-x-full={!isOpen}
+  style="width: {currentWidth}px;"
 >
+  <!-- Resize Handle -->
+  <div
+    class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors select-none"
+    on:mousedown={handleResizeStart}
+  ></div>
+
   <div class="p-4 h-full flex flex-col">
     <!-- Header with tabs -->
     <div class="flex items-center justify-between mb-4">
