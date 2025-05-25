@@ -148,13 +148,13 @@
     <div
       class="{getMaxWidthClass(
         currentWidth
-      )} mx-auto px-8 py-16 lg:px-12 lg:py-20 xl:px-16 xl:py-24"
+      )} mx-auto px-8 py-2 lg:px-12 lg:py-4 xl:px-16 xl:py-6"
     >
       {#if showPreview}
         <!-- Preview Mode -->
         <div
-          class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-8 min-h-[600px]
-                    lg:p-12 lg:min-h-[700px] xl:p-16 xl:min-h-[800px]"
+          class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-4 min-h-[600px]
+                    lg:p-6 lg:min-h-[700px] xl:p-8 xl:min-h-[800px]"
         >
           <div
             class="prose prose-lg prose-gray dark:prose-invert max-w-none w-full
@@ -193,8 +193,8 @@
       {:else}
         <!-- Editor Mode -->
         <div
-          class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-8 min-h-[600px]
-                    lg:p-12 lg:min-h-[700px] xl:p-16 xl:min-h-[800px]"
+          class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-4 min-h-[600px]
+                    lg:p-6 lg:min-h-[700px] xl:p-8 xl:min-h-[800px]"
         >
           <div
             use:editor
@@ -480,6 +480,17 @@
     word-wrap: break-word !important;
     word-break: break-word !important;
     white-space: pre-wrap !important;
+  }
+
+  /* Horizontal rule (dividing line) styles */
+  :global(.milkdown-immersive .ProseMirror hr) {
+    margin: 1rem 0 !important;
+    border: none !important;
+    border-top: 1px solid #e5e7eb !important;
+  }
+
+  :global(.dark .milkdown-immersive .ProseMirror hr) {
+    border-top-color: #4b5563 !important;
   }
 
   /* Custom slider styles */

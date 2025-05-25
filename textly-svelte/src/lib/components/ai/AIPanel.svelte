@@ -160,7 +160,7 @@
 
 <!-- Sidebar -->
 <div
-  class="h-full bg-gray-50 dark:bg-zinc-950 border-l border-gray-200 dark:border-zinc-800 overflow-hidden transform"
+  class="fixed top-0 right-0 h-full bg-gray-50 dark:bg-zinc-950 border-l border-gray-200 dark:border-zinc-800 overflow-hidden transform z-50"
   class:transition-transform={!isResizing}
   class:duration-300={!isResizing}
   class:ease-in-out={!isResizing}

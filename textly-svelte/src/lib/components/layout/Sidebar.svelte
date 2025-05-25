@@ -233,7 +233,7 @@
           title="Toggle Dark Mode"
           aria-label="Toggle Dark Mode"
           role="button"
-          aria-pressed={document.documentElement.classList.contains('dark')}
+          aria-pressed={browser ? document.documentElement.classList.contains('dark') : false}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="dark:hidden">
             <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 1A5 5 0 1 1 8 3a5 5 0 0 1 0 10zm.5-9.5h-1v-1h1v1zm0 11h-1v-1h1v1zm5-5.5v-1h-1v1h1zm-11 0v-1h-1v1h1z"/>

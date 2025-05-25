@@ -391,6 +391,21 @@
                       class="prose prose-sm dark:prose-invert max-w-none"
                       use:markdownAction={[message.content, message.id]}
                     ></div>
+                    {#if aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id}
+                      <div class="flex items-center space-x-1 mt-2">
+                        <div
+                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                        ></div>
+                        <div
+                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          style="animation-delay: 0.1s"
+                        ></div>
+                        <div
+                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          style="animation-delay: 0.2s"
+                        ></div>
+                      </div>
+                    {/if}
                   {/if}
                   {#if message.role === "user" && editingMessageId !== message.id}
                     <button
@@ -445,7 +460,9 @@
                 ? 'text-right'
                 : 'text-left'}"
             >
-              {formatMessageTime(message.timestamp)}
+              {#if !(message.role === 'assistant' && aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id)}
+                {formatMessageTime(message.timestamp)}
+              {/if}
             </div>
           </div>
         </div>
@@ -453,25 +470,7 @@
     {/if}
 
     {#if aiState.isChatLoading}
-      <div class="flex justify-start">
-        <div class="max-w-[80%]">
-          <div class="px-3 py-2 rounded-lg bg-white dark:bg-zinc-900">
-            <div class="flex items-center space-x-1">
-              <div
-                class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-              ></div>
-              <div
-                class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                style="animation-delay: 0.1s"
-              ></div>
-              <div
-                class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                style="animation-delay: 0.2s"
-              ></div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Remove the separate loading indicator since it's now integrated into the message -->
     {/if}
 
     {#if aiState.chatError}
