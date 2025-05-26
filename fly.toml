@@ -3,7 +3,8 @@ app = "textly-backend"
 primary_region = "dfw"
 
 [build]
-  dockerfile = "server/Dockerfile"
+  dockerfile = "Dockerfile"
+  build-context = "server"
 
 [env]
   PORT = "8080"
