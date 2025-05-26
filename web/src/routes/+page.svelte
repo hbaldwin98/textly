@@ -39,13 +39,15 @@
     return fallbackContent;
   });
 
-  onMount(() => {
+  onMount(async () => {
     documentManager = DocumentManagerService.getInstance();
 
     const savedViewMode = localStorage.getItem("textly-view-mode");
     if (savedViewMode) {
       viewMode = savedViewMode;
     }
+
+    await initializeDocumentState();
   });
 
   let leftPaneWidth = $state(50); // Percentage
@@ -120,31 +122,21 @@
     }
   }
 
-  // Initialize document restoration when everything is ready
-  let hasInitialized = $state(false);
-
   async function initializeDocumentState() {
-    if (hasInitialized || !documentManager) return;
+    if (!documentManager) return;
 
     if (isLoggedIn) {
       await restorePreviousDocument();
     }
-
-    hasInitialized = true;
   }
 
-  // Main effect to handle initialization and state changes
-  $effect(() => {
-    // Initialize document state when everything is ready
-    if (documentManager && !hasInitialized) {
-      initializeDocumentState();
-    }
 
-    // Handle auth state changes - clear document when user logs out
-    if (!isLoggedIn && documentManager && hasInitialized) {
+
+  // Effect to handle auth state changes - clear document when user logs out
+  $effect(() => {
+    if (!isLoggedIn && documentManager) {
       documentManager.clearCurrentDocument();
       localStorage.removeItem("textly-current-document-id");
-      hasInitialized = false; // Reset so we can reinitialize when user logs back in
     }
   });
 
@@ -152,7 +144,7 @@
   $effect(() => {
     if (activeDocument) {
       localStorage.setItem("textly-current-document-id", activeDocument.id);
-    } else if (!activeDocument && hasInitialized) {
+    } else if (!activeDocument) {
       localStorage.removeItem("textly-current-document-id");
     }
   });
