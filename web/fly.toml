@@ -5,7 +5,7 @@ primary_region = "dfw"
 [build]
   dockerfile = "Dockerfile"
   [build.args]
-    VITE_POCKETBASE_URL = "https://textly-bhzvcq.fly.dev "
+    VITE_POCKETBASE_URL = "https://textly-bhzvcq.fly.dev"
 
 [env]
   PORT = "3000"
