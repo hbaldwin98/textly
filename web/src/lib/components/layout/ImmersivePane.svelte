@@ -8,6 +8,8 @@
   import { nord } from "@milkdown/theme-nord";
   import { marked } from "marked";
   import { onMount } from "svelte";
+  import { replaceAll } from "@milkdown/kit/utils";
+  import PreviewPane from "../editor/PreviewPane.svelte";
 
   // Props
   export let content = "";
@@ -24,12 +26,13 @@
     | "7xl"
     | "full" = "2xl";
   export let currentWidth = maxWidth;
-  export let onContentChange: ((content: string) => void) | undefined = undefined;
+  export let onContentChange: ((content: string) => void) | undefined =
+    undefined;
 
   let showPreview = false;
   let editorElement: HTMLElement;
-  let editorInstance: any = null;
-  // Get the Tailwind class for max width
+  let editorInstance: Editor | null = null;
+
   function getMaxWidthClass(width: string): string {
     switch (width) {
       case "sm":
@@ -59,25 +62,14 @@
     }
   }
 
-  // Reactive statement to handle content changes from parent
-  $: if (editorInstance && content !== getCurrentEditorContent()) {
+  $: if (editorInstance) {
     updateEditorContent(content);
-  }
-
-  function getCurrentEditorContent(): string {
-    if (!editorInstance) return "";
-    try {
-      // This would need to be implemented with Milkdown's action API
-      return content; // Fallback for now
-    } catch {
-      return "";
-    }
   }
 
   function updateEditorContent(newContent: string) {
     if (!editorInstance) return;
     try {
-      createMilkdownEditor();
+      editorInstance.action(replaceAll(newContent));
     } catch (error) {
       console.warn("Error updating editor content:", error);
     }
@@ -90,9 +82,9 @@
       .config((ctx) => {
         ctx.set(rootCtx, editorElement);
         ctx.set(defaultValueCtx, content);
-        ctx.get(listenerCtx).markdownUpdated((ctx, markdown, prevMarkdown) => {
-          if (onContentChange && markdown !== prevMarkdown) {
-            onContentChange(markdown);
+        ctx.get(listenerCtx).markdownUpdated((_, markdown, prevMarkdown) => {
+          if (markdown !== prevMarkdown) {
+            onContentChange?.(markdown);
           }
         });
       })
@@ -133,9 +125,7 @@
 
   onMount(() => {
     return () => {
-      if (editorInstance) {
-        editorInstance.destroy?.();
-      }
+      editorInstance?.destroy?.();
     };
   });
 </script>
@@ -150,47 +140,8 @@
       )} mx-auto px-8 py-2 lg:px-12 lg:py-4 xl:px-16 xl:py-6"
     >
       {#if showPreview}
-        <!-- Preview Mode -->
-        <div
-          class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-4 min-h-[600px]
-                    lg:p-6 lg:min-h-[700px] xl:p-8 xl:min-h-[800px]"
-        >
-          <div
-            class="prose prose-lg prose-gray dark:prose-invert max-w-none w-full
-                      lg:prose-xl xl:prose-2xl
-                      prose-headings:font-semibold prose-headings:tracking-tight
-                      prose-h1:text-3xl prose-h1:border-b prose-h1:border-gray-200 prose-h1:pb-3 prose-h1:mb-6
-                      lg:prose-h1:text-4xl lg:prose-h1:pb-4 lg:prose-h1:mb-8
-                      xl:prose-h1:text-5xl xl:prose-h1:pb-5 xl:prose-h1:mb-10
-                      prose-h2:text-2xl prose-h2:border-b prose-h2:border-gray-200 prose-h2:pb-2 prose-h2:mb-4
-                      lg:prose-h2:text-3xl lg:prose-h2:pb-3 lg:prose-h2:mb-6
-                      xl:prose-h2:text-4xl xl:prose-h2:pb-4 xl:prose-h2:mb-8
-                      prose-h3:text-xl prose-h3:mb-4
-                      lg:prose-h3:text-2xl lg:prose-h3:mb-6
-                      xl:prose-h3:text-3xl xl:prose-h3:mb-8
-                      prose-p:mb-5 prose-p:leading-relaxed prose-p:text-base
-                      lg:prose-p:mb-7 lg:prose-p:text-lg
-                      xl:prose-p:mb-9 xl:prose-p:text-xl
-                      prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:pl-6 prose-blockquote:italic prose-blockquote:text-gray-600
-                      lg:prose-blockquote:pl-8 xl:prose-blockquote:pl-10
-                      prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
-                      lg:prose-code:px-3 lg:prose-code:py-1.5 lg:prose-code:text-base
-                      xl:prose-code:px-4 xl:prose-code:py-2 xl:prose-code:text-lg
-                      prose-pre:bg-gray-100 prose-pre:border prose-pre:border-gray-200 prose-pre:rounded-lg prose-pre:p-4
-                      lg:prose-pre:p-6 xl:prose-pre:p-8
-                      prose-ul:mb-5 prose-ol:mb-5 prose-li:mb-2
-                      lg:prose-ul:mb-7 lg:prose-ol:mb-7 lg:prose-li:mb-3
-                      xl:prose-ul:mb-9 xl:prose-ol:mb-9 xl:prose-li:mb-4
-                      dark:prose-h1:border-zinc-800 dark:prose-h2:border-zinc-800
-                      dark:prose-blockquote:border-zinc-700 dark:prose-blockquote:text-zinc-400
-                      dark:prose-code:bg-zinc-800 dark:prose-code:text-zinc-200
-                      dark:prose-pre:bg-zinc-800 dark:prose-pre:border-zinc-700"
-          >
-            {@html renderedContent}
-          </div>
-        </div>
+        <PreviewPane content={content} />
       {:else}
-        <!-- Editor Mode -->
         <div
           class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-4 min-h-[600px]
                     lg:p-6 lg:min-h-[700px] xl:p-8 xl:min-h-[800px]"
@@ -265,6 +216,68 @@
     word-wrap: break-word !important;
     word-break: break-word !important;
     white-space: pre-wrap !important;
+  }
+
+  /* Add hover effect for editable lines */
+  :global(.milkdown-immersive .ProseMirror p),
+  :global(.milkdown-immersive .ProseMirror h1),
+  :global(.milkdown-immersive .ProseMirror h2),
+  :global(.milkdown-immersive .ProseMirror h3),
+  :global(.milkdown-immersive .ProseMirror ul),
+  :global(.milkdown-immersive .ProseMirror ol),
+  :global(.milkdown-immersive .ProseMirror blockquote) {
+    transition: background-color 0.2s ease !important;
+    border-radius: 0.375rem !important;
+    padding: 0.25rem 0.5rem !important;
+    margin-left: -0.5rem !important;
+    margin-right: -0.5rem !important;
+  }
+
+  :global(.milkdown-immersive .ProseMirror p:hover),
+  :global(.milkdown-immersive .ProseMirror h1:hover),
+  :global(.milkdown-immersive .ProseMirror h2:hover),
+  :global(.milkdown-immersive .ProseMirror h3:hover),
+  :global(.milkdown-immersive .ProseMirror ul:hover),
+  :global(.milkdown-immersive .ProseMirror ol:hover),
+  :global(.milkdown-immersive .ProseMirror blockquote:hover) {
+    background-color: rgba(
+      243,
+      244,
+      246,
+      0.2
+    ) !important; /* light gray with opacity */
+  }
+
+  :global(.dark .milkdown-immersive .ProseMirror p:hover),
+  :global(.dark .milkdown-immersive .ProseMirror h1:hover),
+  :global(.dark .milkdown-immersive .ProseMirror h2:hover),
+  :global(.dark .milkdown-immersive .ProseMirror h3:hover),
+  :global(.dark .milkdown-immersive .ProseMirror ul:hover),
+  :global(.dark .milkdown-immersive .ProseMirror ol:hover),
+  :global(.dark .milkdown-immersive .ProseMirror blockquote:hover) {
+    background-color: rgba(
+      63,
+      63,
+      70,
+      0.2
+    ) !important; /* dark gray with opacity */
+  }
+
+  /* Adjust existing styles to work with hover effects */
+  :global(.milkdown-immersive .ProseMirror p) {
+    margin-bottom: 1.5rem !important;
+    line-height: inherit !important;
+    width: 100% !important;
+  }
+
+  :global(.milkdown-immersive .ProseMirror blockquote) {
+    border-left: 4px solid #e5e7eb !important;
+    padding-left: 1.5rem !important;
+    margin: 1.5rem 0 !important;
+    font-style: italic !important;
+    color: #6b7280 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   :global(.milkdown-immersive .ProseMirror-focused) {
@@ -344,24 +357,6 @@
       font-size: 2rem !important;
       margin-top: 2rem !important;
       margin-bottom: 1rem !important;
-    }
-  }
-
-  :global(.milkdown-immersive .ProseMirror p) {
-    margin-bottom: 1.5rem !important;
-    line-height: inherit !important;
-    width: 100% !important;
-  }
-
-  @media (min-width: 1024px) {
-    :global(.milkdown-immersive .ProseMirror p) {
-      margin-bottom: 1.75rem !important;
-    }
-  }
-
-  @media (min-width: 1536px) {
-    :global(.milkdown-immersive .ProseMirror p) {
-      margin-bottom: 2rem !important;
     }
   }
 

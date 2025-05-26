@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { browser } from "$app/environment";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { AuthorizationService } from "$lib/services/authorization/authorization.service";
@@ -58,7 +57,7 @@
   let isEditingTitle = $state(false);
   let editingTitle = $state('');
 
-  // Auth state - only initialize in browser
+  // Services
   let authService: AuthorizationService | null = null;
   let documentManager: DocumentManagerService | null = null;
 
@@ -82,6 +81,14 @@
     "7xl",
     "full",
   ] as const;
+
+  let isDarkMode = $state(false);
+
+  $effect(() => {
+    if (typeof document !== 'undefined') {
+      isDarkMode = document.documentElement.classList.contains('dark');
+    }
+  });
 
   function toggleSidebar() {
     isOpen = !isOpen;
@@ -116,15 +123,15 @@
   }
 
   function toggleDarkMode() {
-    if (browser && (window as any).toggleDarkMode) {
+    if ((window as any).toggleDarkMode) {
       (window as any).toggleDarkMode();
     }
   }
 
   async function handleLogout() {
-    if (authService) {
-      await authService.logout();
-    }
+    if (!authService) return;
+
+    await authService.logout();
     goto("/auth");
   }
 
@@ -153,16 +160,12 @@
       editingTitle = '';
     } catch (error) {
       console.error('Failed to update title:', error);
-      // You could show an error message here
     }
   }
 
   onMount(() => {
-    if (browser) {
-      authService = AuthorizationService.getInstance();
-      documentManager = DocumentManagerService.getInstance();
-    }
-
+    documentManager = DocumentManagerService.getInstance();
+    authService = AuthorizationService.getInstance();
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -269,6 +272,7 @@
                         onclick={saveTitle}
                         class="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-md transition-colors duration-200"
                         title="Save (Enter)"
+                        aria-label="Save (Enter)"
                       >
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -278,6 +282,7 @@
                         onclick={cancelEditTitle}
                         class="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-md transition-colors duration-200"
                         title="Cancel (Escape)"
+                        aria-label="Cancel (Escape)"
                       >
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -315,6 +320,7 @@
                     onclick={startEditTitle}
                     class="p-1.5 opacity-0 group-hover:opacity-100 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-md transition-all duration-200"
                     title="Rename document"
+                    aria-label="Rename document"
                   >
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -481,9 +487,7 @@
           onclick={toggleDarkMode}
           title="Toggle Dark Mode"
           aria-label="Toggle Dark Mode"
-          aria-pressed={browser
-            ? document.documentElement.classList.contains("dark")
-            : false}
+          aria-pressed={isDarkMode}
         >
           <svg
             width="16"
@@ -578,15 +582,5 @@
 <DocumentPicker 
   isOpen={isDocumentPickerOpen} 
   on:close={() => isDocumentPickerOpen = false}
-  on:select={async (event) => {
-    try {
-      const selectedDocument = event.detail;
-      if (documentManager) {
-        await documentManager.loadDocument(selectedDocument.id);
-      }
-      isDocumentPickerOpen = false;
-    } catch (error) {
-      console.error('Failed to load document:', error);
-    }
-  }}
+  on:select={() => isDocumentPickerOpen = false}
 />

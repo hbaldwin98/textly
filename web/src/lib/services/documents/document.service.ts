@@ -81,8 +81,7 @@ export class DocumentService {
      * Update an existing document
      */
     public async updateDocument(id: string, updates: Partial<Pick<Document, 'title' | 'content' | 'metadata'>>): Promise<Document> {
-        // First verify the document belongs to the current user
-        const existingDoc = await this.getDocument(id);
+        await this.getDocument(id);
         
         const record = await this.pb.collection('documents').update<Document>(id, updates);
         return record;
@@ -92,7 +91,6 @@ export class DocumentService {
      * Delete a document
      */
     public async deleteDocument(id: string): Promise<void> {
-        // First verify the document belongs to the current user
         await this.getDocument(id);
         
         await this.pb.collection('documents').delete(id);

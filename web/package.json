@@ -31,6 +31,7 @@
 		"@codemirror/state": "^6.5.2",
 		"@lezer/highlight": "^1.2.1",
 		"@milkdown/core": "^7.11.1",
+		"@milkdown/kit": "^7.11.1",
 		"@milkdown/plugin-clipboard": "^7.11.1",
 		"@milkdown/plugin-history": "^7.11.1",
 		"@milkdown/plugin-listener": "^7.11.1",

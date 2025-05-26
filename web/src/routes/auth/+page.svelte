@@ -3,18 +3,15 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { AuthorizationService } from '$lib/services/authorization/authorization.service';
-  import { browser } from '$app/environment';
 
   let isLogin = $state(true);
   let authService: AuthorizationService | null = null;
 
   // Redirect if already logged in
   onMount(() => {
-    if (browser) {
-      authService = AuthorizationService.getInstance();
-      if (authService.token && authService.user) {
-        goto('/');
-      }
+    authService = AuthorizationService.getInstance();
+    if (authService.token && authService.user) {
+      goto('/');
     }
   });
 

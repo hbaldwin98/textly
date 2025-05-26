@@ -2,7 +2,6 @@
   import { Button, Input, Card } from '../ui';
   import { AuthorizationService } from '$lib/services/authorization/authorization.service';
   import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
 
   interface Props {
@@ -18,11 +17,9 @@
   let error = $state('');
 
   let authService: AuthorizationService | null = null;
-  
+
   onMount(() => {
-    if (browser) {
-      authService = AuthorizationService.getInstance();
-    }
+    authService = AuthorizationService.getInstance();
   });
 
   function validateForm(): string | null {
@@ -49,11 +46,6 @@
   async function handleSubmit(event: Event) {
     event.preventDefault();
     
-    if (!authService) {
-      error = 'Authentication service not available';
-      return;
-    }
-    
     const validationError = validateForm();
     if (validationError) {
       error = validationError;
@@ -64,9 +56,9 @@
     error = '';
 
     try {
-      await authService.register(email, password);
+      await authService?.register(email, password);
       // After successful registration, log the user in
-      await authService.login(email, password);
+      await authService?.login(email, password);
       goto('/'); // Redirect to home page after successful registration
     } catch (err: any) {
       error = err.message || 'Registration failed. Please try again.';
@@ -93,17 +85,15 @@
         required
         disabled={loading}
       />
-
       <Input
         id="password"
         type="password"
         label="Password"
-        placeholder="Create a password"
+        placeholder="Enter your password"
         bind:value={password}
         required
         disabled={loading}
       />
-
       <Input
         id="confirmPassword"
         type="password"
@@ -113,42 +103,25 @@
         required
         disabled={loading}
       />
-
       {#if error}
-        <div class="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
-          <p class="text-sm text-red-600 dark:text-red-400">{error}</p>
-        </div>
+        <div class="text-red-500 text-sm">{error}</div>
       {/if}
-
-      <div class="text-xs text-gray-500 dark:text-gray-400">
-        Password must be at least 8 characters long
-      </div>
-
-      <Button
-        type="submit"
-        class="w-full"
-        {loading}
-        disabled={loading}
-      >
-        {#snippet children()}
-          {loading ? 'Creating account...' : 'Create account'}
-        {/snippet}
+      <Button type="submit" class="w-full" disabled={loading}>
+        {loading ? 'Creating account...' : 'Create account'}
       </Button>
     </form>
 
-    {#if onSwitchToLogin}
-      <div class="text-center">
-        <p class="text-sm text-gray-600 dark:text-gray-400">
-          Already have an account?
-          <button
-            type="button"
-            class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
-            onclick={onSwitchToLogin}
-          >
-            Sign in
-          </button>
-        </p>
-      </div>
-    {/if}
+    <div class="text-center text-sm">
+      <p class="text-gray-600 dark:text-gray-400">
+        Already have an account?{' '}
+        <button
+          type="button"
+          class="text-blue-600 dark:text-blue-400 hover:underline"
+          onclick={onSwitchToLogin}
+        >
+          Sign in
+        </button>
+      </p>
+    </div>
   </div>
 </Card> 

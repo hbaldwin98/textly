@@ -1,13 +1,11 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
-  import { browser } from '$app/environment';
   
   let { children } = $props();
   let darkMode = $state(false);
   
   onMount(() => {
-    // Check for saved dark mode preference or default to system preference
     const saved = localStorage.getItem('darkMode');
     if (saved !== null) {
       darkMode = JSON.parse(saved);
@@ -19,7 +17,7 @@
   });
   
   function updateTheme() {
-    if (browser) {
+    if (typeof document !== 'undefined') {
       if (darkMode) {
         document.documentElement.classList.add('dark');
       } else {
@@ -35,9 +33,9 @@
   }
   
   // Make toggleDarkMode available globally
-  if (browser) {
+  onMount(() => {
     (window as any).toggleDarkMode = toggleDarkMode;
-  }
+  });
 </script>
 
 <div class="h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">

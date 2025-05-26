@@ -2,7 +2,6 @@
   import { Button, Input, Card } from '../ui';
   import { AuthorizationService } from '$lib/services/authorization/authorization.service';
   import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
 
   interface Props {
@@ -17,20 +16,13 @@
   let error = $state('');
 
   let authService: AuthorizationService | null = null;
-  
+
   onMount(() => {
-    if (browser) {
-      authService = AuthorizationService.getInstance();
-    }
+    authService = AuthorizationService.getInstance();
   });
 
   async function handleSubmit(event: Event) {
     event.preventDefault();
-    
-    if (!authService) {
-      error = 'Authentication service not available';
-      return;
-    }
     
     if (!email || !password) {
       error = 'Please fill in all fields';
@@ -41,7 +33,7 @@
     error = '';
 
     try {
-      await authService.login(email, password);
+      await authService?.login(email, password);
       goto('/'); // Redirect to home page after successful login
     } catch (err: any) {
       error = err.message || 'Login failed. Please check your credentials.';

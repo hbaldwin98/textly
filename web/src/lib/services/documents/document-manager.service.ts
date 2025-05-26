@@ -1,6 +1,5 @@
 import { DocumentService, type Document } from './document.service';
 import { documentActions } from '$lib/stores/document.store';
-import { browser } from '$app/environment';
 
 export class DocumentManagerService {
     private static instance: DocumentManagerService;
@@ -24,21 +23,16 @@ export class DocumentManagerService {
     /**
      * Load a document and set it as current
      */
-    public async loadDocument(documentId: string): Promise<Document> {
+    public async loadDocument(documentId: string): Promise<void> {
         try {
-            // Unsubscribe from previous document if any
-            this.unsubscribeFromCurrentDocument();
-
             const document = await this.documentService.getDocument(documentId);
             this.currentDocumentId = documentId;
             documentActions.setCurrentDocument(document);
-
+            
             // Subscribe to real-time updates for this document
             this.subscribeToCurrentDocument();
-
-            return document;
         } catch (error) {
-            documentActions.setError(error instanceof Error ? error.message : 'Failed to load document');
+            console.error('Failed to load document:', error);
             throw error;
         }
     }
@@ -66,21 +60,21 @@ export class DocumentManagerService {
     /**
      * Update the current document's content (with debounced auto-save)
      */
-    public updateContent(content: string): void {
+    public async updateContent(content: string): Promise<void> {
         if (!this.currentDocumentId) return;
 
-        // Clear existing timeout
+        // Clear any existing timeout
         if (this.saveTimeout) {
             clearTimeout(this.saveTimeout);
         }
 
-        // Set new timeout for auto-save
+        // Set a new timeout for auto-save
         this.saveTimeout = setTimeout(async () => {
             try {
-                await this.saveCurrentDocument({ content });
+                const updatedDocument = await this.documentService.updateDocument(this.currentDocumentId!, { content });
+                documentActions.updateDocument(updatedDocument);
             } catch (error) {
-                console.error('Auto-save failed:', error);
-                documentActions.setError('Auto-save failed');
+                console.error('Failed to save document:', error);
             }
         }, this.SAVE_DELAY);
     }
@@ -92,9 +86,10 @@ export class DocumentManagerService {
         if (!this.currentDocumentId) return;
 
         try {
-            await this.saveCurrentDocument({ title });
+            const updatedDocument = await this.documentService.updateDocument(this.currentDocumentId, { title });
+            documentActions.updateDocument(updatedDocument);
         } catch (error) {
-            documentActions.setError(error instanceof Error ? error.message : 'Failed to update title');
+            console.error('Failed to update title:', error);
             throw error;
         }
     }
@@ -159,7 +154,7 @@ export class DocumentManagerService {
      * Subscribe to real-time updates for the current document
      */
     private subscribeToCurrentDocument(): void {
-        if (!this.currentDocumentId || !browser) return;
+        if (!this.currentDocumentId) return;
 
         this.unsubscribeFromDocument = this.documentService.subscribeToDocument(
             this.currentDocumentId,

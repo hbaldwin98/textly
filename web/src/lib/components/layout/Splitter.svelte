@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { browser } from '$app/environment';
   
   // Props
   interface Props {
@@ -17,7 +16,7 @@
   let startLeftPercent = 0;
   
   onMount(() => {
-    if (!browser || !splitterElement) return;
+    if (!splitterElement) return;
     
     splitterElement.addEventListener('mousedown', handleMouseDown);
   });
@@ -29,8 +28,6 @@
   });
   
   function handleMouseDown(e: MouseEvent) {
-    if (!browser) return;
-    
     isResizing = true;
     startMouseX = e.clientX;
     startLeftPercent = currentWidth; // Use the current width state directly
@@ -49,51 +46,40 @@
     }
   }
   
-  function updateSplitterPosition(currentMouseX: number) {
-    if (!isResizing || !browser) {
-      animationFrameId = null;
-      return;
-    }
-    
-    const container = splitterElement.parentElement;
-    if (!container) {
-      animationFrameId = null;
-      return;
-    }
-    
-    const containerRect = container.getBoundingClientRect();
-    const mouseDelta = currentMouseX - startMouseX;
-    const deltaPercent = (mouseDelta / containerRect.width) * 100;
-    
-    // Calculate new percentage with min/max constraints (expanded range)
-    const newLeftPercent = Math.max(10, Math.min(90, startLeftPercent + deltaPercent));
-    
-    onWidthChange(newLeftPercent);
-    
-    animationFrameId = null;
-  }
-  
   function handleMouseUp() {
     isResizing = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
     
     if (animationFrameId !== null) {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
     }
+  }
+  
+  function updateSplitterPosition(currentMouseX: number) {
+    const deltaX = currentMouseX - startMouseX;
+    const containerWidth = document.documentElement.clientWidth;
+    const deltaPercent = (deltaX / containerWidth) * 100;
     
-    if (browser) {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    }
+    // Calculate new width percentage, clamped between 20% and 80%
+    const newWidth = Math.max(20, Math.min(80, startLeftPercent + deltaPercent));
+    
+    // Update the width
+    onWidthChange(newWidth);
+    
+    // Reset animation frame ID
+    animationFrameId = null;
   }
 </script>
 
-<div 
+<div
   bind:this={splitterElement}
-  class="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-400 cursor-col-resize transition-colors relative shrink-0 z-10"
+  class="w-1 h-full bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-400 cursor-col-resize transition-colors duration-200"
   role="separator"
-  aria-label="Resize panes"
->
-  <!-- Invisible wider hit area for easier grabbing -->
-  <div class="absolute inset-y-0 -left-2 -right-2 cursor-col-resize"></div>
-</div> 
+  aria-orientation="vertical"
+  aria-valuenow={currentWidth}
+  aria-valuemin="20"
+  aria-valuemax="80"
+  title="Drag to resize"
+></div> 
