@@ -51,7 +51,7 @@ This guide explains how to deploy your Textly application using Docker on variou
 3. **Deploy Backend:**
    ```bash
    # Create and deploy backend app
-   fly launch --dockerfile server/Dockerfile --name textly-backend
+   fly launch --dockerfile Dockerfile.backend --name textly-backend
    
    # Set environment variables
    fly secrets set OPENAI_API_KEY=your_key OPENAI_BASE_URL=https://api.openai.com/v1
@@ -88,7 +88,7 @@ This guide explains how to deploy your Textly application using Docker on variou
 
 1. Connect your GitHub repository
 2. Configure build settings:
-   - Backend: Dockerfile at `server/Dockerfile`
+   - Backend: Dockerfile at `Dockerfile.backend`
    - Frontend: Dockerfile at `web/Dockerfile`
 3. Set environment variables in the dashboard
 
