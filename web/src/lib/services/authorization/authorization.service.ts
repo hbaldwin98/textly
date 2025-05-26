@@ -10,17 +10,8 @@ export class AuthorizationService {
 
     private constructor() {
         this.pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080');
-        
-        const possibleKeys = ['pocketbase_auth', 'pb_auth', `pb_auth_${import.meta.env.VITE_POCKETBASE_URL}`];
-        for (const key of possibleKeys) {
-            const storedAuth = localStorage.getItem(key);
-            if (storedAuth) {
-                console.log(`Found auth data in key "${key}":`, storedAuth.substring(0, 100) + '...');
-            }
-        }
-        
         this.updateReactiveStore();
-        
+
         this.pb.authStore.onChange(() => {
             this.updateReactiveStore();
         });

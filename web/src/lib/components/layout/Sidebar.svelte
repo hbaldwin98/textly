@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { AuthorizationService } from "$lib/services/authorization/authorization.service";
   import { authStore } from "$lib/stores/auth.store";
-  import { DocumentPicker } from "$lib/components/documents";
+  import { DocumentCommandPalette } from "$lib/components/documents";
   import { currentDocument } from "$lib/stores/document.store";
   import { DocumentManagerService } from "$lib/services/documents";
 
@@ -53,9 +53,9 @@
   let isOpen = $state(false);
   let isHovering = $state(false);
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let isDocumentPickerOpen = $state(false);
+  let isCommandPaletteOpen = $state(false);
   let isEditingTitle = $state(false);
-  let editingTitle = $state('');
+  let editingTitle = $state("");
 
   // Services
   let authService: AuthorizationService | null = null;
@@ -85,8 +85,8 @@
   let isDarkMode = $state(false);
 
   $effect(() => {
-    if (typeof document !== 'undefined') {
-      isDarkMode = document.documentElement.classList.contains('dark');
+    if (typeof document !== "undefined") {
+      isDarkMode = document.documentElement.classList.contains("dark");
     }
   });
 
@@ -142,13 +142,13 @@
   function startEditTitle() {
     if (activeDocument) {
       isEditingTitle = true;
-      editingTitle = activeDocument.title || '';
+      editingTitle = activeDocument.title || "";
     }
   }
 
   function cancelEditTitle() {
     isEditingTitle = false;
-    editingTitle = '';
+    editingTitle = "";
   }
 
   async function saveTitle() {
@@ -157,9 +157,9 @@
     try {
       await documentManager.updateTitle(editingTitle.trim());
       isEditingTitle = false;
-      editingTitle = '';
+      editingTitle = "";
     } catch (error) {
-      console.error('Failed to update title:', error);
+      console.error("Failed to update title:", error);
     }
   }
 
@@ -242,7 +242,9 @@
         <div class="space-y-2">
           <!-- Current Document Display -->
           {#if activeDocument}
-            <div class="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800 rounded-xl group transition-all duration-200 hover:shadow-md dark:hover:shadow-blue-900/20">
+            <div
+              class="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800 rounded-xl group transition-all duration-200 hover:shadow-md dark:hover:shadow-blue-900/20"
+            >
               {#if isEditingTitle}
                 <!-- Editing Mode -->
                 <div class="space-y-2">
@@ -252,18 +254,30 @@
                       placeholder="Document title..."
                       class="flex-1 text-sm font-medium bg-white dark:bg-zinc-800 border border-blue-300 dark:border-blue-600 rounded-lg px-3 py-2 text-blue-900 dark:text-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 shadow-sm"
                       onkeydown={(e: KeyboardEvent) => {
-                        if (e.key === 'Enter') {
+                        if (e.key === "Enter") {
                           saveTitle();
-                        } else if (e.key === 'Escape') {
+                        } else if (e.key === "Escape") {
                           cancelEditTitle();
                         }
                       }}
                     />
                   </div>
                   <div class="flex items-center justify-between">
-                    <p class="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 712-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <p
+                      class="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1"
+                    >
+                      <svg
+                        class="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 712-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
                       </svg>
                       Editing document title
                     </p>
@@ -274,8 +288,18 @@
                         title="Save (Enter)"
                         aria-label="Save (Enter)"
                       >
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        <svg
+                          class="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       </button>
                       <button
@@ -284,8 +308,18 @@
                         title="Cancel (Escape)"
                         aria-label="Cancel (Escape)"
                       >
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        <svg
+                          class="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -301,15 +335,30 @@
                       title="Double-click to rename"
                     >
                       <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <svg
+                          class="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
                         </svg>
-                        <p class="text-sm font-semibold text-blue-900 dark:text-blue-100 truncate group-hover:text-blue-700 dark:group-hover:text-blue-300">
-                          {activeDocument.title || 'Untitled Document'}
+                        <p
+                          class="text-sm font-semibold text-blue-900 dark:text-blue-100 truncate group-hover:text-blue-700 dark:group-hover:text-blue-300"
+                        >
+                          {activeDocument.title || "Untitled Document"}
                         </p>
                       </div>
                       <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full bg-green-400 dark:bg-green-500 animate-pulse" title="Live document"></div>
+                        <div
+                          class="w-2 h-2 rounded-full bg-green-400 dark:bg-green-500 animate-pulse"
+                          title="Live document"
+                        ></div>
                         <p class="text-xs text-blue-600 dark:text-blue-400">
                           Current document
                         </p>
@@ -322,37 +371,71 @@
                     title="Rename document"
                     aria-label="Rename document"
                   >
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <svg
+                      class="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
                     </svg>
                   </button>
                 </div>
               {/if}
             </div>
           {/if}
-          
-          <!-- Document Picker Button -->
+
+          <!-- Document Command Palette Button -->
           <button
             class="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium rounded-xl border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 group"
-            onclick={() => isDocumentPickerOpen = true}
-            title="Select or Create Document"
-            aria-label="Select or Create Document"
+            onclick={() => (isCommandPaletteOpen = true)}
+            title="Open Document Palette (Ctrl+P)"
+            aria-label="Open Document Palette"
           >
-            <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-zinc-700 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors duration-200">
-              <svg class="w-4 h-4 text-gray-600 dark:text-zinc-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            <div
+              class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-zinc-700 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors duration-200"
+            >
+              <svg
+                class="w-4 h-4 text-gray-600 dark:text-zinc-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
               </svg>
             </div>
             <div class="flex-1 text-left">
-              <div class="font-medium group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors duration-200">
-                {activeDocument ? 'Switch Document' : 'Select Document'}
+              <div
+                class="font-medium group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors duration-200"
+              >
+                {activeDocument ? "Switch Document" : "Select Document"}
               </div>
-              <div class="text-xs text-gray-500 dark:text-zinc-500">
-                Browse and manage documents
+              <div class="text-xs text-gray-500 dark:text-zinc-500 mt-0.5">
+                Ctrl+P for quick access
               </div>
             </div>
-            <svg class="w-4 h-4 text-gray-400 dark:text-zinc-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-all duration-200 group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            <svg
+              class="w-4 h-4 text-gray-400 dark:text-zinc-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-all duration-200 group-hover:translate-x-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </button>
         </div>
@@ -528,7 +611,9 @@
               Signed in as
             </div>
             <div class="flex items-center justify-between">
-              <div class="text-gray-900 dark:text-zinc-100 font-medium truncate">
+              <div
+                class="text-gray-900 dark:text-zinc-100 font-medium truncate"
+              >
                 {userEmail}
               </div>
               <button
@@ -537,7 +622,12 @@
                 title="Sign Out"
                 aria-label="Sign Out"
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                >
                   <path
                     d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"
                   />
@@ -578,9 +668,9 @@
   ></button>
 {/if}
 
-<!-- Document Picker Modal -->
-<DocumentPicker 
-  isOpen={isDocumentPickerOpen} 
-  on:close={() => isDocumentPickerOpen = false}
-  on:select={() => isDocumentPickerOpen = false}
+<!-- Document Command Palette -->
+<DocumentCommandPalette
+  isOpen={isCommandPaletteOpen}
+  on:close={() => (isCommandPaletteOpen = false)}
+  on:select={() => (isCommandPaletteOpen = false)}
 />

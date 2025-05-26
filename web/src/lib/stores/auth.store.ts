@@ -21,12 +21,7 @@ export function updateAuthState(token: string, user: AuthRecord | null) {
     user,
     token
   };
-  console.log('Auth store updated:', {
-    isLoggedIn: newState.isLoggedIn,
-    hasToken: !!token,
-    hasUser: !!user,
-    userEmail: user?.email
-  });
+
   authStore.set(newState);
 }
 

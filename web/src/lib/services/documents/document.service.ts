@@ -45,6 +45,23 @@ export class DocumentService {
     }
 
     /**
+     * Get all documents with minimal data (titles and metadata only) for performance
+     */
+    public async getDocumentTitles(): Promise<Pick<Document, 'id' | 'title' | 'user' | 'created' | 'updated'>[]> {
+        if (!this.authService.user) {
+            throw new Error('User not authenticated');
+        }
+
+        const records = await this.pb.collection('documents').getFullList<Document>({
+            filter: `user = "${this.authService.user.id}"`,
+            sort: '-updated',
+            fields: 'id,title,user,created,updated',
+        });
+
+        return records;
+    }
+
+    /**
      * Get a specific document by ID
      */
     public async getDocument(id: string): Promise<Document> {

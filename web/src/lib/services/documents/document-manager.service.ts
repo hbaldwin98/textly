@@ -7,7 +7,7 @@ export class DocumentManagerService {
     private currentDocumentId: string | null = null;
     private saveTimeout: ReturnType<typeof setTimeout> | null = null;
     private unsubscribeFromDocument: (() => void) | null = null;
-    private readonly SAVE_DELAY = 1000; // 1 second delay for auto-save
+    private readonly SAVE_DELAY = 1000;
 
     private constructor() {
         this.documentService = DocumentService.getInstance();

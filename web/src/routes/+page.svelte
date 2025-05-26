@@ -11,11 +11,13 @@
   import { currentDocument } from "$lib/stores/document.store";
   import { authStore } from "$lib/stores/auth.store";
   import { DocumentManagerService } from "$lib/services/documents";
+  import { DocumentCommandPalette } from "$lib/components/documents";
 
   // Reactive state
   let viewMode = $state("split"); // 'split', 'editor', 'preview', 'focus'
   let isSpellcheckEnabled = $state(true);
   let isAISidebarOpen = $state(false);
+  let isCommandPaletteOpen = $state(false);
 
   // Auth and document state
   let authState = $derived($authStore);
@@ -115,8 +117,6 @@
       } catch (error) {
         localStorage.removeItem("textly-current-document-id");
       }
-    } else {
-      console.log("No previous document ID found in localStorage");
     }
   }
 
@@ -182,6 +182,10 @@
             e.preventDefault();
             handleSpellcheckToggle();
             break;
+          case "p":
+            e.preventDefault();
+            isCommandPaletteOpen = true;
+            break;
         }
       }
     }
@@ -225,6 +229,7 @@
         {:else if viewMode === "focus"}
           <ImmersivePane
             content={editorContent}
+            spellcheck={isSpellcheckEnabled}
             currentWidth={contentWidth}
             onContentChange={handleContentChange}
           />
@@ -261,3 +266,10 @@
     </div>
   </div>
 </div>
+
+<!-- Document Command Palette -->
+<DocumentCommandPalette
+  isOpen={isCommandPaletteOpen}
+  on:close={() => (isCommandPaletteOpen = false)}
+  on:select={() => (isCommandPaletteOpen = false)}
+/>

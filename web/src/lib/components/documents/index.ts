@@ -1,1 +1,1 @@
-export { default as DocumentPicker } from './DocumentPicker.svelte'; 
+export { default as DocumentCommandPalette } from './DocumentCommandPalette.svelte'; 

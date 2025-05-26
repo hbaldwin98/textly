@@ -13,6 +13,7 @@
 
   // Props
   export let content = "";
+  export let spellcheck = true;
   export let maxWidth:
     | "sm"
     | "md"
@@ -32,6 +33,7 @@
   let showPreview = false;
   let editorElement: HTMLElement;
   let editorInstance: Editor | null = null;
+  let currentSpellcheck = spellcheck;
 
   function getMaxWidthClass(width: string): string {
     switch (width) {
@@ -99,10 +101,63 @@
     makeEditor
       .then((editor) => {
         editorInstance = editor;
+        // Enable spellcheck on the ProseMirror editor with a small delay
+        setTimeout(() => updateSpellcheck(), 100);
       })
       .catch((error) => {
         console.error("Failed to create Milkdown editor:", error);
       });
+  }
+
+  function updateSpellcheck() {
+    if (!editorInstance || !editorElement) return;
+
+    // Find the ProseMirror editor element and set spellcheck
+    const proseMirrorElement = editorElement.querySelector(
+      ".ProseMirror"
+    ) as HTMLElement;
+    if (proseMirrorElement) {
+      const spellcheckValue = spellcheck.toString();
+
+      // Set spellcheck attribute
+      proseMirrorElement.setAttribute("spellcheck", spellcheckValue);
+      proseMirrorElement.setAttribute("contenteditable", "true");
+
+      // Force browser to re-evaluate spellcheck by temporarily removing and re-adding content
+      const wasActive = document.activeElement === proseMirrorElement;
+      const selection = window.getSelection();
+      const range =
+        selection && selection.rangeCount > 0
+          ? selection.getRangeAt(0).cloneRange()
+          : null;
+
+      // Temporarily disable and re-enable contenteditable to force spellcheck refresh
+      proseMirrorElement.setAttribute("contenteditable", "false");
+      setTimeout(() => {
+        proseMirrorElement.setAttribute("contenteditable", "true");
+        proseMirrorElement.setAttribute("spellcheck", spellcheckValue);
+
+        // Restore focus and selection if it was active
+        if (wasActive) {
+          proseMirrorElement.focus();
+          if (range && selection) {
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+      }, 10);
+    }
+
+    // Also set spellcheck on the root editor element
+    if (editorElement) {
+      editorElement.setAttribute("spellcheck", spellcheck.toString());
+    }
+  }
+
+  // Update spellcheck when the prop changes
+  $: if (editorInstance && spellcheck !== currentSpellcheck) {
+    currentSpellcheck = spellcheck;
+    setTimeout(() => updateSpellcheck(), 50);
   }
 
   function editor(dom: HTMLElement) {
@@ -140,7 +195,7 @@
       )} mx-auto px-8 py-2 lg:px-12 lg:py-4 xl:px-16 xl:py-6"
     >
       {#if showPreview}
-        <PreviewPane content={content} />
+        <PreviewPane {content} />
       {:else}
         <div
           class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-4 min-h-[600px]
@@ -474,6 +529,33 @@
 
   :global(.dark .milkdown-immersive .ProseMirror hr) {
     border-top-color: #4b5563 !important;
+  }
+
+  /* Spellcheck styles */
+  :global(.milkdown-immersive .ProseMirror) {
+    /* Ensure spellcheck underlines are visible */
+    text-decoration-skip-ink: none !important;
+  }
+
+  /* Style spellcheck underlines to be more visible */
+  :global(.milkdown-immersive .ProseMirror *::-webkit-spelling-error) {
+    text-decoration: underline wavy #ef4444 !important;
+    text-decoration-thickness: 2px !important;
+  }
+
+  :global(.milkdown-immersive .ProseMirror *::-webkit-grammar-error) {
+    text-decoration: underline wavy #f59e0b !important;
+    text-decoration-thickness: 2px !important;
+  }
+
+  :global(.milkdown-immersive .ProseMirror *::-moz-spelling-error) {
+    text-decoration: underline wavy #ef4444 !important;
+    text-decoration-thickness: 2px !important;
+  }
+
+  :global(.milkdown-immersive .ProseMirror *::-moz-grammar-error) {
+    text-decoration: underline wavy #f59e0b !important;
+    text-decoration-thickness: 2px !important;
   }
 
   /* Custom slider styles */
