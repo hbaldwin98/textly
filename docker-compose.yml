@@ -13,6 +13,7 @@ services:
       - OPENAI_BASE_MODEL=${OPENAI_BASE_MODEL}
     volumes:
       - ./server/pb_data:/root/pb_data
+      - ./server/migrations:/root/pb_migrations
     networks:
       - textly-network
 

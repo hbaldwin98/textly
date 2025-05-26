@@ -24,6 +24,7 @@
     | "7xl"
     | "full" = "2xl";
   export let currentWidth = maxWidth;
+  export let onContentChange: ((content: string) => void) | undefined = undefined;
 
   let showPreview = false;
   let editorElement: HTMLElement;
@@ -89,6 +90,11 @@
       .config((ctx) => {
         ctx.set(rootCtx, editorElement);
         ctx.set(defaultValueCtx, content);
+        ctx.get(listenerCtx).markdownUpdated((ctx, markdown, prevMarkdown) => {
+          if (onContentChange && markdown !== prevMarkdown) {
+            onContentChange(markdown);
+          }
+        });
       })
       .config(nord)
       .use(commonmark)

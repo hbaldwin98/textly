@@ -132,6 +132,13 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
 		},
+		Tools: []openai.ChatCompletionToolParam{{
+			Function: openai.FunctionDefinitionParam{
+				Name:        "web_search_preview",
+				Description: param.NewOpt("Search the web for current information"),
+			},
+		},
+		},
 	})
 
 	var suggestion strings.Builder

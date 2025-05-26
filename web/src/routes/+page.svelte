@@ -9,29 +9,54 @@
     Splitter, 
     AIPanel 
   } from '$lib';
+  import { currentDocument } from '$lib/stores/document.store';
+  import { authStore } from '$lib/stores/auth.store';
+  import { DocumentManagerService } from '$lib/services/documents';
   
   // Reactive state
   let viewMode = $state('split'); // 'split', 'editor', 'preview', 'focus'
   let isSpellcheckEnabled = $state(true);
-  let editorContent = $state('');
   let isAISidebarOpen = $state(false);
+  
+  // Auth and document state
+  let authState = $derived($authStore);
+  let isLoggedIn = $derived(authState.isLoggedIn);
+  let activeDocument = $derived($currentDocument);
+  let hasDocument = $derived(!!activeDocument);
+  let documentManager: DocumentManagerService | null = null;
+  
+  // Fallback content for when no document is active (must be declared before derived)
+  let fallbackContent = $state('');
+  
+  // Content state - derived from document or fallback content
+  let editorContent = $derived.by(() => {
+    if (activeDocument) {
+      return activeDocument.content || '';
+    }
+    
+    // Fallback content for non-logged-in users or when no document is selected
+    return fallbackContent;
+  });
   
   // Load content and view mode from localStorage on mount
   onMount(() => {
     if (browser) {
+      // Initialize document manager
+      documentManager = DocumentManagerService.getInstance();
+      
       // Load saved view mode
       const savedViewMode = localStorage.getItem('textly-view-mode');
       if (savedViewMode) {
         viewMode = savedViewMode;
       }
 
-      // Load saved content
+      // Load fallback content from localStorage or set default welcome content
       const savedContent = localStorage.getItem('textly-content');
       if (savedContent) {
-        editorContent = savedContent;
+        fallbackContent = savedContent;
       } else {
-        // Set default content if nothing is saved
-        editorContent = `# Welcome to Textly
+        // Set default welcome content for fallback
+        fallbackContent = `# Welcome to Textly
 
 This is a **markdown editor** with *live preview* built with **Svelte**!
 
@@ -104,6 +129,8 @@ function createFocusMode() {
 
 Happy writing! ✨`;
       }
+      
+
     }
   });
   
@@ -135,12 +162,82 @@ Happy writing! ✨`;
   }
   
   function handleContentChange(newContent: string) {
-    editorContent = newContent;
-    // Save to localStorage whenever content changes
-    if (browser) {
-      localStorage.setItem('textly-content', newContent);
+    if (hasDocument && documentManager) {
+      // Auto-save to document if we have an active document
+      documentManager.updateContent(newContent);
+    } else {
+      // Update fallback content and save to localStorage if no document is active
+      fallbackContent = newContent;
+      if (browser) {
+        localStorage.setItem('textly-content', newContent);
+      }
     }
   }
+  
+  // Function to restore previously selected document
+  async function restorePreviousDocument() {
+    if (!documentManager || !browser || !isLoggedIn) return;
+    
+    const savedDocumentId = localStorage.getItem('textly-current-document-id');
+    if (savedDocumentId) {
+      try {
+        console.log('Attempting to restore document:', savedDocumentId);
+        await documentManager.loadDocument(savedDocumentId);
+        console.log('Successfully restored previous document:', savedDocumentId);
+      } catch (error) {
+        console.log('Could not restore previous document:', error);
+        // Clear the invalid document ID from storage
+        localStorage.removeItem('textly-current-document-id');
+      }
+    } else {
+      console.log('No previous document ID found in localStorage');
+    }
+  }
+  
+  // Initialize document restoration when everything is ready
+  let hasInitialized = $state(false);
+  
+  async function initializeDocumentState() {
+    if (hasInitialized || !documentManager || !browser) return;
+    
+    console.log('Initializing document state...', { isLoggedIn, hasDocumentManager: !!documentManager });
+    
+    if (isLoggedIn) {
+      await restorePreviousDocument();
+    }
+    
+    hasInitialized = true;
+  }
+  
+  // Main effect to handle initialization and state changes
+  $effect(() => {
+    // Initialize document state when everything is ready
+    if (documentManager && browser && !hasInitialized) {
+      initializeDocumentState();
+    }
+    
+    // Handle auth state changes - clear document when user logs out
+    if (!isLoggedIn && documentManager && hasInitialized) {
+      console.log('User logged out, clearing document state');
+      documentManager.clearCurrentDocument();
+      // Also clear the saved document ID
+      if (browser) {
+        localStorage.removeItem('textly-current-document-id');
+      }
+      hasInitialized = false; // Reset so we can reinitialize when user logs back in
+    }
+  });
+  
+  // Save current document ID to localStorage when it changes
+  $effect(() => {
+    if (browser && activeDocument) {
+      localStorage.setItem('textly-current-document-id', activeDocument.id);
+      console.log('Saved current document ID:', activeDocument.id);
+    } else if (browser && !activeDocument && hasInitialized) {
+      localStorage.removeItem('textly-current-document-id');
+      console.log('Cleared saved document ID');
+    }
+  });
   
   // Keyboard shortcuts
   onMount(() => {
@@ -211,6 +308,7 @@ Happy writing! ✨`;
           <ImmersivePane 
             content={editorContent}
             currentWidth={contentWidth}
+            onContentChange={handleContentChange}
           />
         {:else}
           <!-- Split view -->
