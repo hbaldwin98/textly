@@ -45,16 +45,17 @@ type DeactivateConversationRequest struct {
 }
 
 type ConversationResponse struct {
-	Id            string                        `json:"id"`
-	Title         string                        `json:"title"`
-	Type          string                        `json:"type"`
-	TotalRequests int                           `json:"total_requests"`
-	InputTokens   int64                         `json:"input_tokens"`
-	OutputTokens  int64                         `json:"output_tokens"`
-	Cost          float64                       `json:"cost"`
-	Messages      []ConversationMessageResponse `json:"messages"`
-	Created       string                        `json:"created"`
-	Updated       string                        `json:"updated"`
+	Id              string                        `json:"id"`
+	Title           string                        `json:"title"`
+	Type            string                        `json:"type"`
+	TotalRequests   int                           `json:"total_requests"`
+	InputTokens     int64                         `json:"input_tokens"`
+	OutputTokens    int64                         `json:"output_tokens"`
+	ReasoningTokens int64                         `json:"reasoning_tokens"`
+	Cost            float64                       `json:"cost"`
+	Messages        []ConversationMessageResponse `json:"messages"`
+	Created         string                        `json:"created"`
+	Updated         string                        `json:"updated"`
 }
 
 type ConversationMessageResponse struct {
@@ -63,6 +64,7 @@ type ConversationMessageResponse struct {
 	ResponseMessage string  `json:"response_message"`
 	InputTokens     int64   `json:"input_tokens"`
 	OutputTokens    int64   `json:"output_tokens"`
+	ReasoningTokens int64   `json:"reasoning_tokens"`
 	Cost            float64 `json:"cost"`
 	Active          bool    `json:"active"`
 	Created         string  `json:"created"`
@@ -119,16 +121,17 @@ func StartConversationHandler(e *core.RequestEvent) error {
 
 	// Create conversation
 	conversation := &queries.Conversation{
-		UserId:        userId,
-		Title:         title,
-		Type:          "chat",
-		TotalRequests: "0",
-		InputTokens:   "0",
-		OutputTokens:  "0",
-		Cost:          "0.000000",
-		Active:        true,
-		Created:       now,
-		Updated:       now,
+		UserId:          userId,
+		Title:           title,
+		Type:            "chat",
+		TotalRequests:   "0",
+		InputTokens:     "0",
+		OutputTokens:    "0",
+		ReasoningTokens: "0",
+		Cost:            "0.000000",
+		Active:          true,
+		Created:         now,
+		Updated:         now,
 	}
 
 	createdConversation, err := queries.CreateConversation(e, conversation)
@@ -266,26 +269,38 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 	var responseBuilder strings.Builder
 	var usage *openai.CompletionUsage
 
+	if stream.Err() != nil {
+		return e.Error(http.StatusInternalServerError, "Failed to stream response", stream.Err())
+	}
+
 	// Stream the response
 	for stream.Next() {
-		chunk := stream.Current()
-		content := chunk.Choices[0].Delta.Content
-
-		// Accumulate response content
-		responseBuilder.WriteString(content)
-
-		// Capture usage data when available
-		if chunk.Usage.PromptTokens > 0 || chunk.Usage.CompletionTokens > 0 {
-			usage = &chunk.Usage
+		if stream.Err() != nil {
+			return e.Error(http.StatusInternalServerError, "Failed to stream response", stream.Err())
 		}
 
-		// Send to client
-		escapedContent := strings.ReplaceAll(content, "\n", "\\n")
-		sseData := "data: " + escapedContent + "\n\n"
-		e.Response.Write([]byte(sseData))
+		chunk := stream.Current()
 
-		if flusher, ok := e.Response.(http.Flusher); ok {
-			flusher.Flush()
+		// Check if choices exist and content is not empty
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+			content := chunk.Choices[0].Delta.Content
+
+			// Accumulate response content
+			responseBuilder.WriteString(content)
+
+			// Send to client
+			escapedContent := strings.ReplaceAll(content, "\n", "\\n")
+			sseData := "data: " + escapedContent + "\n\n"
+			e.Response.Write([]byte(sseData))
+
+			if flusher, ok := e.Response.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		}
+
+		// Capture usage data when available
+		if chunk.Usage.PromptTokens > 0 || chunk.Usage.CompletionTokens > 0 || chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
+			usage = &chunk.Usage
 		}
 	}
 
@@ -295,19 +310,22 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 	// Save the conversation message to database
 	response := responseBuilder.String()
 
-	// Calculate tokens and cost
+	reasoningTokens := int64(0)
 	inputTokens := int64(0)
 	outputTokens := int64(0)
-	cost := float64(0)
+	totalCost := float64(0)
 
 	if usage != nil {
-		inputTokens = int64(usage.PromptTokens)
-		outputTokens = int64(usage.CompletionTokens)
+		reasoningTokens = usage.CompletionTokensDetails.ReasoningTokens
+		inputTokens = usage.PromptTokens
+		outputTokens = usage.CompletionTokens
 
-		// Calculate cost (same rates as in chat.go)
-		inputCostPerToken := 0.00000015  // $0.15 per 1M tokens
-		outputCostPerToken := 0.00000060 // $0.60 per 1M tokens
-		cost = float64(inputTokens)*inputCostPerToken + float64(outputTokens)*outputCostPerToken
+		if costField, exists := usage.JSON.ExtraFields["cost"]; exists {
+			costStr := costField.Raw()
+			if cost, err := strconv.ParseFloat(costStr, 64); err == nil {
+				totalCost = cost
+			}
+		}
 	}
 
 	// Create conversation message
@@ -318,7 +336,8 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 		ResponseMessage: response,
 		InputTokens:     strconv.FormatInt(inputTokens, 10),
 		OutputTokens:    strconv.FormatInt(outputTokens, 10),
-		Cost:            strconv.FormatFloat(cost, 'f', 6, 64),
+		ReasoningTokens: strconv.FormatInt(reasoningTokens, 10),
+		Cost:            strconv.FormatFloat(totalCost, 'f', 6, 64),
 		Active:          true,
 		Created:         timestamp,
 	}
@@ -339,7 +358,7 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 	}
 
 	// Update conversation totals
-	err = queries.UpdateConversationTotals(e, conversationId, inputTokens, outputTokens, cost)
+	err = queries.UpdateConversationTotals(e, conversationId, inputTokens, outputTokens, reasoningTokens, totalCost)
 	if err != nil {
 		log.Printf("Failed to update conversation totals: %v", err)
 	}
@@ -411,6 +430,7 @@ func GetConversationHandler(e *core.RequestEvent) error {
 	for _, msg := range messages {
 		inputTokens, _ := strconv.ParseInt(msg.InputTokens, 10, 64)
 		outputTokens, _ := strconv.ParseInt(msg.OutputTokens, 10, 64)
+		reasoningTokens, _ := strconv.ParseInt(msg.ReasoningTokens, 10, 64)
 		cost, _ := strconv.ParseFloat(msg.Cost, 64)
 
 		messageResponses = append(messageResponses, ConversationMessageResponse{
@@ -419,6 +439,7 @@ func GetConversationHandler(e *core.RequestEvent) error {
 			ResponseMessage: msg.ResponseMessage,
 			InputTokens:     inputTokens,
 			OutputTokens:    outputTokens,
+			ReasoningTokens: reasoningTokens,
 			Cost:            cost,
 			Active:          msg.Active,
 			Created:         msg.Created,
@@ -428,19 +449,21 @@ func GetConversationHandler(e *core.RequestEvent) error {
 	totalRequests, _ := strconv.Atoi(conversation.TotalRequests)
 	inputTokens, _ := strconv.ParseInt(conversation.InputTokens, 10, 64)
 	outputTokens, _ := strconv.ParseInt(conversation.OutputTokens, 10, 64)
+	reasoningTokens, _ := strconv.ParseInt(conversation.ReasoningTokens, 10, 64)
 	cost, _ := strconv.ParseFloat(conversation.Cost, 64)
 
 	response := ConversationResponse{
-		Id:            conversation.Id,
-		Title:         conversation.Title,
-		Type:          conversation.Type,
-		TotalRequests: totalRequests,
-		InputTokens:   inputTokens,
-		OutputTokens:  outputTokens,
-		Cost:          cost,
-		Messages:      messageResponses,
-		Created:       conversation.Created,
-		Updated:       conversation.Updated,
+		Id:              conversation.Id,
+		Title:           conversation.Title,
+		Type:            conversation.Type,
+		TotalRequests:   totalRequests,
+		InputTokens:     inputTokens,
+		OutputTokens:    outputTokens,
+		ReasoningTokens: reasoningTokens,
+		Cost:            cost,
+		Messages:        messageResponses,
+		Created:         conversation.Created,
+		Updated:         conversation.Updated,
 	}
 
 	return e.JSON(http.StatusOK, response)
@@ -473,12 +496,14 @@ func GetConversationsHandler(e *core.RequestEvent) error {
 		totalRequests, _ := strconv.Atoi(conv.TotalRequests)
 		inputTokens, _ := strconv.ParseInt(conv.InputTokens, 10, 64)
 		outputTokens, _ := strconv.ParseInt(conv.OutputTokens, 10, 64)
+		reasoningTokens, _ := strconv.ParseInt(conv.ReasoningTokens, 10, 64)
 		cost, _ := strconv.ParseFloat(conv.Cost, 64)
 
 		messageResponses := make([]ConversationMessageResponse, 0)
 		for _, msg := range conv.Messages {
 			inputTokens, _ := strconv.ParseInt(msg.InputTokens, 10, 64)
 			outputTokens, _ := strconv.ParseInt(msg.OutputTokens, 10, 64)
+			reasoningTokens, _ := strconv.ParseInt(msg.ReasoningTokens, 10, 64)
 			cost, _ := strconv.ParseFloat(msg.Cost, 64)
 
 			messageResponses = append(messageResponses, ConversationMessageResponse{
@@ -487,6 +512,7 @@ func GetConversationsHandler(e *core.RequestEvent) error {
 				ResponseMessage: msg.ResponseMessage,
 				InputTokens:     inputTokens,
 				OutputTokens:    outputTokens,
+				ReasoningTokens: reasoningTokens,
 				Cost:            cost,
 				Active:          msg.Active,
 				Created:         msg.Created,
@@ -494,16 +520,17 @@ func GetConversationsHandler(e *core.RequestEvent) error {
 		}
 
 		responses = append(responses, ConversationResponse{
-			Id:            conv.Id,
-			Title:         conv.Title,
-			Type:          conv.Type,
-			TotalRequests: totalRequests,
-			InputTokens:   inputTokens,
-			OutputTokens:  outputTokens,
-			Cost:          cost,
-			Messages:      messageResponses,
-			Created:       conv.Created,
-			Updated:       conv.Updated,
+			Id:              conv.Id,
+			Title:           conv.Title,
+			Type:            conv.Type,
+			TotalRequests:   totalRequests,
+			InputTokens:     inputTokens,
+			OutputTokens:    outputTokens,
+			ReasoningTokens: reasoningTokens,
+			Cost:            cost,
+			Messages:        messageResponses,
+			Created:         conv.Created,
+			Updated:         conv.Updated,
 		})
 	}
 

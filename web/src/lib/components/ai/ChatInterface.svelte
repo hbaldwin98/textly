@@ -284,9 +284,9 @@
 
     <div class="space-y-1 max-h-32 overflow-y-auto">
       {#each aiState.conversations as conversation}
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 pr-2">
           <button
-            class="flex-1 text-left text-xs p-2 rounded hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate"
+            class="flex-1 text-left text-xs p-1.5 rounded hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate min-w-0"
             class:bg-blue-50={aiState.currentConversation?.id === conversation.id}
             class:dark:bg-blue-950={aiState.currentConversation?.id === conversation.id}
             class:text-blue-600={aiState.currentConversation?.id === conversation.id}
@@ -294,32 +294,36 @@
             onclick={() => loadConversation(conversation.id)}
             title={conversation.title}
           >
-            <div class="font-medium truncate">{conversation.title}</div>
-            <div class="text-gray-500 dark:text-zinc-400">
-              {formatTimestamp(conversation.updatedAt)}
+            <div class="flex items-center justify-between gap-2 min-w-0">
+              <div class="font-medium truncate flex-1">{conversation.title}</div>
+              <div class="text-gray-500 dark:text-zinc-400 flex-shrink-0 text-right">
+                {formatTimestamp(conversation.updatedAt)}
+              </div>
             </div>
           </button>
-          <div class="w-6 flex justify-end">
-            <button
-              class="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-              onclick={() => deleteConversation(conversation.id)}
-              title="Delete Chat"
-              aria-label="Delete Current Chat"
+          <button
+            class="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
+            onclick={() => {
+              if (confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+                deleteConversation(conversation.id);
+              }
+            }}
+            title="Delete Chat"
+            aria-label="Delete Current Chat"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-3 w-3"
+              viewBox="0 0 20 20"
+              fill="currentColor"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-3 w-3"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
-          </div>
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
         </div>
       {/each}
 
@@ -379,18 +383,34 @@
                         class="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
                         onclick={cancelEditing}
                         title="Cancel editing"
+                        disabled={aiState.isChatLoading}
                       >
                         Cancel
                       </button>
                       <button
                         class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
                         onclick={sendMessage}
-                        disabled={!messageInput.trim()}
+                        disabled={!messageInput.trim() || aiState.isChatLoading}
                         title="Apply changes and resubmit"
                       >
                         Apply
                       </button>
                     </div>
+                    {#if aiState.isChatLoading}
+                      <div class="flex items-center space-x-1 mt-2">
+                        <div
+                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                        ></div>
+                        <div
+                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          style="animation-delay: 0.1s"
+                        ></div>
+                        <div
+                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          style="animation-delay: 0.2s"
+                        ></div>
+                      </div>
+                    {/if}
                   </div>
                 {:else}
                   {#if message.role === "user"}
@@ -497,67 +517,65 @@
 
   <!-- Message Input -->
   <div class="border-t border-gray-200 dark:border-zinc-800 p-3">
-    {#if !editingMessageId}
-      <!-- Model Selector -->
-      <div class="mb-3">
-        <ModelSelector />
-      </div>
-      
-      <div class="flex gap-2">
-        <textarea
-          bind:value={messageInput}
-          onkeydown={handleKeydown}
-          placeholder="Ask the AI assistant anything..."
-          class="flex-1 resize-none rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 placeholder-gray-500 dark:placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          rows="2"
-          disabled={aiState.isChatLoading}
-        ></textarea>
-        {#if aiState.isChatLoading}
-          <button
-            onclick={() => aiService.stopCurrentConversation()}
-            class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
-            title="Stop generating"
+    <!-- Model Selector -->
+    <div class="mb-2">
+      <ModelSelector />
+    </div>
+    
+    <div class="flex gap-2">
+      <textarea
+        bind:value={messageInput}
+        onkeydown={handleKeydown}
+        placeholder="Ask the AI assistant anything..."
+        class="flex-1 resize-none rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 placeholder-gray-500 dark:placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        rows="2"
+        disabled={aiState.isChatLoading || !!editingMessageId}
+      ></textarea>
+      {#if aiState.isChatLoading}
+        <button
+          onclick={() => aiService.stopCurrentConversation()}
+          class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+          title="Stop generating"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            Stop
-          </button>
-        {:else}
-          <button
-            onclick={sendMessage}
-            disabled={!messageInput.trim()}
-            class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded border bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all
-                   lg:px-3.5 lg:py-2 lg:text-sm lg:gap-1.5 xl:px-4 xl:py-2.5 xl:text-base xl:gap-2"
-            title="Send Message"
-            aria-label="Send Message"
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          Stop
+        </button>
+      {:else}
+        <button
+          onclick={sendMessage}
+          disabled={!messageInput.trim() || !!editingMessageId}
+          class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded border bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all
+                 lg:px-3.5 lg:py-2 lg:text-sm lg:gap-1.5 xl:px-4 xl:py-2.5 xl:text-base xl:gap-2"
+          title="Send Message"
+          aria-label="Send Message"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"
-              />
-            </svg>
-          </button>
-        {/if}
-      </div>
-      <div class="text-xs text-gray-500 dark:text-zinc-400 mt-1">
-        Press Enter to send, Shift+Enter for new line
-      </div>
-    {/if}
+            <path
+              d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"
+            />
+          </svg>
+        </button>
+      {/if}
+    </div>
+    <div class="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+      Press Enter to send, Shift+Enter for new line
+    </div>
   </div>
 </div>
 

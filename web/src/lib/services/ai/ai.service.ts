@@ -545,8 +545,8 @@ class AIService {
       const messageIndex = conversation.messages.findIndex(m => m.id === messageId);
       if (messageIndex === -1) throw new Error('Message not found');
       
-      // Extract the actual database message ID (remove '_assistant' suffix if present)
-      const databaseMessageId = messageId.endsWith('_assistant') ? messageId.replace('_assistant', '') : messageId;
+      // Use the message ID directly for the database request
+      const databaseMessageId = messageId;
 
       // Create updated conversation with edited message (remove subsequent messages)
       const editedMessage = {

@@ -48,57 +48,32 @@ type TextAssistResponse struct {
 	Suggestion string `json:"suggestion"`
 }
 
-func getMessages(messages []Message) []openai.ChatCompletionMessageParamUnion {
-	var openaiMessages []openai.ChatCompletionMessageParamUnion
-	openaiMessages = append(openaiMessages, openai.SystemMessage(strings.Join(rules, "\n")))
-	for _, message := range messages {
-		switch message.Role {
-		case MessageRoleUser:
-			openaiMessages = append(openaiMessages, openai.UserMessage(message.Content))
-		case MessageRoleAssistant:
-			openaiMessages = append(openaiMessages, openai.AssistantMessage(message.Content))
-		case MessageRoleSystem:
-			openaiMessages = append(openaiMessages, openai.SystemMessage(message.Content))
-		}
-	}
-	return openaiMessages
-}
-
 func Chat(messages []Message, model string, useReasoning bool) *ssestream.Stream[openai.ChatCompletionChunk] {
 	var client = GetOpenAiClient()
 
-	// Use provided model or fallback to environment variable
 	selectedModel := model
 	if selectedModel == "" {
 		selectedModel = os.Getenv("OPENAI_BASE_MODEL")
 	}
 
-	// Build system message with reasoning enhancement if requested
-	systemRules := rules
-	if useReasoning {
-		reasoningRules := []string{
-			"Think step by step through complex problems.",
-			"Show your reasoning process when solving difficult questions.",
-			"Break down complex tasks into smaller, manageable steps.",
-			"Consider multiple perspectives before providing your final answer.",
-		}
-		systemRules = append(systemRules, reasoningRules...)
-	}
-
-	stream := client.Chat.Completions.NewStreaming(context.TODO(), openai.ChatCompletionNewParams{
-		Messages:    getMessagesWithReasoning(messages, systemRules),
+	params := openai.ChatCompletionNewParams{
+		Messages:    convertToChatMessage(messages, rules),
 		Temperature: param.NewOpt(0.7),
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
 		},
 		Model:     selectedModel,
 		MaxTokens: param.NewOpt(int64(4000)),
-	})
+	}
 
-	return stream
+	if useReasoning {
+		params.ReasoningEffort = openai.ReasoningEffortMedium
+	}
+
+	return client.Chat.Completions.NewStreaming(context.TODO(), params)
 }
 
-func getMessagesWithReasoning(messages []Message, systemRules []string) []openai.ChatCompletionMessageParamUnion {
+func convertToChatMessage(messages []Message, systemRules []string) []openai.ChatCompletionMessageParamUnion {
 	var openaiMessages []openai.ChatCompletionMessageParamUnion
 	openaiMessages = append(openaiMessages, openai.SystemMessage(strings.Join(systemRules, "\n")))
 	for _, message := range messages {
@@ -165,7 +140,7 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 	// Use streaming to get usage data with cost
 	stream := client.Chat.Completions.NewStreaming(context.TODO(), openai.ChatCompletionNewParams{
 		Messages:  messages,
-		Model:     os.Getenv("OPENAI_BASE_MODEL"), // "meta-llama/llama-3.1-70b-instruct"
+		Model:     os.Getenv("OPENAI_BASE_MODEL"),
 		MaxTokens: param.NewOpt(int64(4000)),
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
@@ -202,12 +177,13 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 		log.Println("Usage JSON: ", usage.JSON)
 	}
 
-	// Extract usage data from OpenAI response
+	reasoningTokens := int64(0)
 	inputTokens := int64(0)
 	outputTokens := int64(0)
 	totalCost := float64(0)
 
 	if usage != nil {
+		reasoningTokens = usage.CompletionTokensDetails.ReasoningTokens
 		inputTokens = usage.PromptTokens
 		outputTokens = usage.CompletionTokens
 
@@ -228,15 +204,16 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 	// Create conversation
 	now := time.Now().Format(time.RFC3339)
 	conversation := &queries.Conversation{
-		UserId:        userId,
-		Title:         title,
-		TotalRequests: "1",
-		Type:          req.Type,
-		InputTokens:   strconv.FormatInt(inputTokens, 10),
-		OutputTokens:  strconv.FormatInt(outputTokens, 10),
-		Cost:          fmt.Sprintf("%.6f", totalCost),
-		Created:       now,
-		Updated:       now,
+		UserId:          userId,
+		Title:           title,
+		TotalRequests:   "1",
+		Type:            req.Type,
+		InputTokens:     strconv.FormatInt(inputTokens, 10),
+		OutputTokens:    strconv.FormatInt(outputTokens, 10),
+		ReasoningTokens: strconv.FormatInt(reasoningTokens, 10),
+		Cost:            fmt.Sprintf("%.6f", totalCost),
+		Created:         now,
+		Updated:         now,
 	}
 
 	createdConversation, err := queries.CreateConversation(e, conversation)
