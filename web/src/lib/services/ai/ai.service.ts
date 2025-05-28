@@ -1,7 +1,8 @@
-import { writable, derived } from 'svelte/store';
+import { writable, type Writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { AuthorizationService } from '../authorization/authorization.service';
 import ConversationService, { type Conversation } from './conversation.service';
+import { modelService } from './model.service';
 
 export interface SuggestionHistory {
   original: string;
@@ -204,14 +205,18 @@ class AIService {
         endpoint = '/conversations/continue';
         requestBody = {
           conversation_id: conversationId,
-          message: message
+          message: message,
+          model: modelService.getSelectedModel()?.id ? modelService.getEffectiveModelId(modelService.getSelectedModel()!.id) : undefined,
+          use_reasoning: modelService.shouldUseReasoning()
         };
       } else if (currentState!.currentConversation) {
         targetConversation = currentState!.currentConversation;
         endpoint = '/conversations/continue';
         requestBody = {
           conversation_id: targetConversation.id,
-          message: message
+          message: message,
+          model: modelService.getSelectedModel()?.id ? modelService.getEffectiveModelId(modelService.getSelectedModel()!.id) : undefined,
+          use_reasoning: modelService.shouldUseReasoning()
         };
       } else {
         // This will be a new conversation
@@ -226,7 +231,9 @@ class AIService {
         endpoint = '/conversations/start';
         requestBody = {
           message: message,
-          title: targetConversation.title
+          title: targetConversation.title,
+          model: modelService.getSelectedModel()?.id ? modelService.getEffectiveModelId(modelService.getSelectedModel()!.id) : undefined,
+          use_reasoning: modelService.shouldUseReasoning()
         };
       }
 
@@ -580,7 +587,9 @@ class AIService {
         body: JSON.stringify({
           conversation_id: conversationId,
           message_id: databaseMessageId,
-          new_message: newContent
+          new_message: newContent,
+          model: modelService.getSelectedModel()?.id ? modelService.getEffectiveModelId(modelService.getSelectedModel()!.id) : undefined,
+          use_reasoning: modelService.shouldUseReasoning()
         }),
         signal
       });

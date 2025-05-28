@@ -64,19 +64,54 @@ func getMessages(messages []Message) []openai.ChatCompletionMessageParamUnion {
 	return openaiMessages
 }
 
-func Chat(messages []Message) *ssestream.Stream[openai.ChatCompletionChunk] {
+func Chat(messages []Message, model string, useReasoning bool) *ssestream.Stream[openai.ChatCompletionChunk] {
 	var client = GetOpenAiClient()
+
+	// Use provided model or fallback to environment variable
+	selectedModel := model
+	if selectedModel == "" {
+		selectedModel = os.Getenv("OPENAI_BASE_MODEL")
+	}
+
+	// Build system message with reasoning enhancement if requested
+	systemRules := rules
+	if useReasoning {
+		reasoningRules := []string{
+			"Think step by step through complex problems.",
+			"Show your reasoning process when solving difficult questions.",
+			"Break down complex tasks into smaller, manageable steps.",
+			"Consider multiple perspectives before providing your final answer.",
+		}
+		systemRules = append(systemRules, reasoningRules...)
+	}
+
 	stream := client.Chat.Completions.NewStreaming(context.TODO(), openai.ChatCompletionNewParams{
-		Messages:    getMessages(messages),
+		Messages:    getMessagesWithReasoning(messages, systemRules),
 		Temperature: param.NewOpt(0.7),
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
 		},
-		Model:     os.Getenv("OPENAI_BASE_MODEL"), // "meta-llama/llama-3.1-70b-instruct"
+		Model:     selectedModel,
 		MaxTokens: param.NewOpt(int64(4000)),
 	})
 
 	return stream
+}
+
+func getMessagesWithReasoning(messages []Message, systemRules []string) []openai.ChatCompletionMessageParamUnion {
+	var openaiMessages []openai.ChatCompletionMessageParamUnion
+	openaiMessages = append(openaiMessages, openai.SystemMessage(strings.Join(systemRules, "\n")))
+	for _, message := range messages {
+		switch message.Role {
+		case MessageRoleUser:
+			openaiMessages = append(openaiMessages, openai.UserMessage(message.Content))
+		case MessageRoleAssistant:
+			openaiMessages = append(openaiMessages, openai.AssistantMessage(message.Content))
+		case MessageRoleSystem:
+			openaiMessages = append(openaiMessages, openai.SystemMessage(message.Content))
+		}
+	}
+	return openaiMessages
 }
 
 func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (string, error) {

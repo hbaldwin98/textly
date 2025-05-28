@@ -4,9 +4,11 @@
     aiStore,
     type ChatMessage,
     type ChatConversation,
+    modelService,
   } from "$lib/services/ai";
   import { onMount } from "svelte";
   import { marked } from "marked";
+  import ModelSelector from "./ModelSelector.svelte";
 
   // State
   let messageInput = "";
@@ -496,6 +498,11 @@
   <!-- Message Input -->
   <div class="border-t border-gray-200 dark:border-zinc-800 p-3">
     {#if !editingMessageId}
+      <!-- Model Selector -->
+      <div class="mb-3">
+        <ModelSelector />
+      </div>
+      
       <div class="flex gap-2">
         <textarea
           bind:value={messageInput}

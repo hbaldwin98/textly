@@ -19,19 +19,25 @@ import (
 )
 
 type StartConversationRequest struct {
-	Message string `json:"message"`
-	Title   string `json:"title,omitempty"`
+	Message      string `json:"message"`
+	Title        string `json:"title,omitempty"`
+	Model        string `json:"model,omitempty"`
+	UseReasoning bool   `json:"use_reasoning,omitempty"`
 }
 
 type ContinueConversationRequest struct {
 	ConversationId string `json:"conversation_id"`
 	Message        string `json:"message"`
+	Model          string `json:"model,omitempty"`
+	UseReasoning   bool   `json:"use_reasoning,omitempty"`
 }
 
 type EditConversationRequest struct {
 	ConversationId string `json:"conversation_id"`
 	MessageId      string `json:"message_id"`
 	NewMessage     string `json:"new_message"`
+	Model          string `json:"model,omitempty"`
+	UseReasoning   bool   `json:"use_reasoning,omitempty"`
 }
 
 type DeactivateConversationRequest struct {
@@ -142,7 +148,7 @@ func StartConversationHandler(e *core.RequestEvent) error {
 		{Role: services.MessageRoleUser, Content: req.Message},
 	}
 
-	return streamAndSaveConversation(e, createdConversation.Id, req.Message, messages, userId, now)
+	return streamAndSaveConversation(e, createdConversation.Id, req.Message, messages, userId, now, req.Model, req.UseReasoning)
 }
 
 // ContinueConversationHandler adds a message to existing conversation and streams the response
@@ -187,7 +193,7 @@ func ContinueConversationHandler(e *core.RequestEvent) error {
 	// Add the new user message
 	aiMessages = append(aiMessages, services.Message{Role: services.MessageRoleUser, Content: req.Message})
 
-	return streamAndSaveConversation(e, req.ConversationId, req.Message, aiMessages, userId, now)
+	return streamAndSaveConversation(e, req.ConversationId, req.Message, aiMessages, userId, now, req.Model, req.UseReasoning)
 }
 
 // EditConversationHandler edits a message and streams the new response
@@ -249,13 +255,13 @@ func EditConversationHandler(e *core.RequestEvent) error {
 	// Add the edited message
 	aiMessages = append(aiMessages, services.Message{Role: services.MessageRoleUser, Content: req.NewMessage})
 
-	return streamAndSaveConversation(e, req.ConversationId, req.NewMessage, aiMessages, userId, now)
+	return streamAndSaveConversation(e, req.ConversationId, req.NewMessage, aiMessages, userId, now, req.Model, req.UseReasoning)
 }
 
 // streamAndSaveConversation handles the streaming and saving logic
-func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage string, messages []services.Message, userId, timestamp string) error {
+func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage string, messages []services.Message, userId, timestamp, model string, useReasoning bool) error {
 	// Start streaming
-	stream := services.Chat(messages)
+	stream := services.Chat(messages, model, useReasoning)
 
 	var responseBuilder strings.Builder
 	var usage *openai.CompletionUsage
