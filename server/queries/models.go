@@ -22,6 +22,8 @@ type ConversationMessage struct {
 	ConversationId  string `db:"conversation"`
 	UserMessage     string `db:"user_message"`
 	ResponseMessage string `db:"response_message"`
+	ThinkingContent string `db:"thinking_content"`
+	Model           string `db:"model"`
 	InputTokens     string `db:"input_tokens"`
 	OutputTokens    string `db:"output_tokens"`
 	ReasoningTokens string `db:"reasoning_tokens"`

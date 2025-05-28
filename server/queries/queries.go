@@ -137,6 +137,8 @@ func CreateConversationMessage(e *core.RequestEvent, message *ConversationMessag
 	record.Set("conversation", message.ConversationId)
 	record.Set("user_message", message.UserMessage)
 	record.Set("response_message", message.ResponseMessage)
+	record.Set("thinking_content", message.ThinkingContent)
+	record.Set("model", message.Model)
 	record.Set("input_tokens", message.InputTokens)
 	record.Set("output_tokens", message.OutputTokens)
 	record.Set("reasoning_tokens", message.ReasoningTokens)
@@ -154,6 +156,8 @@ func CreateConversationMessage(e *core.RequestEvent, message *ConversationMessag
 		ConversationId:  message.ConversationId,
 		UserMessage:     message.UserMessage,
 		ResponseMessage: message.ResponseMessage,
+		ThinkingContent: message.ThinkingContent,
+		Model:           message.Model,
 		InputTokens:     message.InputTokens,
 		OutputTokens:    message.OutputTokens,
 		ReasoningTokens: message.ReasoningTokens,
@@ -164,7 +168,7 @@ func CreateConversationMessage(e *core.RequestEvent, message *ConversationMessag
 }
 
 func GetConversationMessageById(e *core.RequestEvent, id string) (*ConversationMessage, error) {
-	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "input_tokens", "output_tokens", "cost", "active", "created").
+	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "thinking_content", "model", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "active", "created").
 		From("conversation_messages").
 		Where(dbx.HashExp{"id": id})
 
@@ -177,7 +181,7 @@ func GetConversationMessageById(e *core.RequestEvent, id string) (*ConversationM
 }
 
 func GetConversationMessagesByConversationId(e *core.RequestEvent, conversationId string) ([]ConversationMessage, error) {
-	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "input_tokens", "output_tokens", "cost", "active", "created").
+	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "thinking_content", "model", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "active", "created").
 		From("conversation_messages").
 		Where(dbx.HashExp{"conversation": conversationId}).
 		OrderBy("created ASC")
@@ -191,7 +195,7 @@ func GetConversationMessagesByConversationId(e *core.RequestEvent, conversationI
 }
 
 func GetConversationMessagesByUserId(e *core.RequestEvent, userId string) ([]*ConversationMessage, error) {
-	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "input_tokens", "output_tokens", "cost", "active", "created").
+	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "thinking_content", "model", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "active", "created").
 		From("conversation_messages").
 		Where(dbx.HashExp{"user": userId}).
 		OrderBy("created DESC")
@@ -205,7 +209,7 @@ func GetConversationMessagesByUserId(e *core.RequestEvent, userId string) ([]*Co
 }
 
 func GetActiveConversationMessagesByConversationId(e *core.RequestEvent, conversationId string) ([]*ConversationMessage, error) {
-	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "input_tokens", "output_tokens", "cost", "active", "created").
+	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "thinking_content", "model", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "active", "created").
 		From("conversation_messages").
 		Where(dbx.HashExp{"conversation": conversationId, "active": true}).
 		OrderBy("created ASC")
@@ -256,7 +260,7 @@ func DeactivateMessagesFromTimestamp(e *core.RequestEvent, conversationId string
 }
 
 func GetActiveMessagesByConversationIdOrdered(e *core.RequestEvent, conversationId string) ([]*ConversationMessage, error) {
-	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "active", "created").
+	query := e.App.DB().Select("id", "user", "conversation", "user_message", "response_message", "thinking_content", "model", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "active", "created").
 		From("conversation_messages").
 		Where(dbx.HashExp{"conversation": conversationId, "active": true}).
 		OrderBy("created ASC")

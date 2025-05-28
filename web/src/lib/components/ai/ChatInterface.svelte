@@ -415,29 +415,73 @@
                 {:else}
                   {#if message.role === "user"}
                     <div
-                      class="whitespace-pre-wrap break-words overflow-hidden"
+                      class="whitespace-pre-wrap break-words overflow-hidden {editingMessageId !== message.id ? 'pr-8' : ''}"
                     >
                       {message.content}
                     </div>
                   {:else}
-                    <div
-                      class="prose prose-sm dark:prose-invert max-w-none"
-                      use:markdownAction={[message.content, message.id]}
-                    ></div>
-                    {#if aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id}
-                      <div class="flex items-center space-x-1 mt-2">
-                        <div
-                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                        ></div>
-                        <div
-                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          style="animation-delay: 0.1s"
-                        ></div>
-                        <div
-                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          style="animation-delay: 0.2s"
-                        ></div>
+                    {#if message.thinking}
+                      <!-- Thinking bubble -->
+                      <div class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400">
+                        <div class="flex items-center space-x-1">
+                          <div
+                            class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          ></div>
+                          <div
+                            class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.1s"
+                          ></div>
+                          <div
+                            class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.2s"
+                          ></div>
+                        </div>
+                        <span class="text-sm">Thinking...</span>
                       </div>
+                      {#if message.thinkingContent}
+                        <details class="mt-2 text-sm">
+                          <summary class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100">
+                            <span class="text-xs">💭 View thinking process</span>
+                          </summary>
+                          <div class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600">
+                            <div class="whitespace-pre-wrap text-gray-700 dark:text-zinc-300 font-mono text-xs">
+                              {message.thinkingContent}
+                            </div>
+                          </div>
+                        </details>
+                      {/if}
+                    {:else}
+                      <div
+                        class="prose prose-sm dark:prose-invert max-w-none"
+                        use:markdownAction={[message.content, message.id]}
+                      ></div>
+                      {#if message.thinkingContent}
+                        <details class="mt-2">
+                          <summary class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100">
+                            <span class="text-xs">💭 View thinking process</span>
+                          </summary>
+                          <div class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600">
+                            <div class="whitespace-pre-wrap text-gray-700 dark:text-zinc-300 font-mono text-xs">
+                              {message.thinkingContent}
+                            </div>
+                          </div>
+                        </details>
+                      {/if}
+                      {#if aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id}
+                        <div class="flex items-center space-x-1 mt-2">
+                          <div
+                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          ></div>
+                          <div
+                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.1s"
+                          ></div>
+                          <div
+                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.2s"
+                          ></div>
+                        </div>
+                      {/if}
                     {/if}
                   {/if}
                   {#if message.role === "user" && editingMessageId !== message.id}
@@ -503,7 +547,22 @@
     {/if}
 
     {#if aiState.isChatLoading}
-      <!-- Remove the separate loading indicator since it's now integrated into the message -->
+      <!-- Show loading indicator when waiting for response to start -->
+      {#if !aiState.currentConversation?.messages.length || aiState.currentConversation.messages[aiState.currentConversation.messages.length - 1]?.role !== 'assistant'}
+        <div class="flex justify-start">
+          <div class="w-[80%]">
+            <div class="px-3 py-2 rounded-lg text-sm bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100">
+              <div class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400">
+                <div class="flex items-center space-x-1">
+                  <div class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"></div>
+                  <div class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                  <div class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {/if}
     {/if}
 
     {#if aiState.chatError}

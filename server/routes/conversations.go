@@ -62,6 +62,8 @@ type ConversationMessageResponse struct {
 	Id              string  `json:"id"`
 	UserMessage     string  `json:"user_message"`
 	ResponseMessage string  `json:"response_message"`
+	ThinkingContent string  `json:"thinking_content"`
+	Model           string  `json:"model"`
 	InputTokens     int64   `json:"input_tokens"`
 	OutputTokens    int64   `json:"output_tokens"`
 	ReasoningTokens int64   `json:"reasoning_tokens"`
@@ -263,11 +265,22 @@ func EditConversationHandler(e *core.RequestEvent) error {
 
 // streamAndSaveConversation handles the streaming and saving logic
 func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage string, messages []services.Message, userId, timestamp, model string, useReasoning bool) error {
+	// Send thinking state only when reasoning is explicitly enabled
+	if useReasoning {
+		thinkingData := "data: {\"thinking\": true}\n\n"
+		e.Response.Write([]byte(thinkingData))
+		if flusher, ok := e.Response.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	}
+
 	// Start streaming
 	stream := services.Chat(messages, model, useReasoning)
 
 	var responseBuilder strings.Builder
+	var thinkingBuilder strings.Builder
 	var usage *openai.CompletionUsage
+	var hasStartedContent bool
 
 	if stream.Err() != nil {
 		return e.Error(http.StatusInternalServerError, "Failed to stream response", stream.Err())
@@ -281,20 +294,58 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 
 		chunk := stream.Current()
 
-		// Check if choices exist and content is not empty
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			content := chunk.Choices[0].Delta.Content
+		// Check for reasoning content first (for models that support it)
+		if len(chunk.Choices) > 0 {
+			// Try to extract reasoning if available and reasoning is enabled
+			if useReasoning {
+				if chunkJSON := chunk.Choices[0].Delta.JSON.ExtraFields; chunkJSON != nil {
+					if reasoningField, exists := chunkJSON["reasoning"]; exists {
+						reasoningContent := reasoningField.Raw()
+						if reasoningContent != "" && reasoningContent != "null" {
+							// Remove quotes if present
+							if strings.HasPrefix(reasoningContent, "\"") && strings.HasSuffix(reasoningContent, "\"") {
+								reasoningContent = reasoningContent[1 : len(reasoningContent)-1]
+							}
+							thinkingBuilder.WriteString(reasoningContent)
 
-			// Accumulate response content
-			responseBuilder.WriteString(content)
+							// Send thinking content to client
+							escapedThinking := strings.ReplaceAll(reasoningContent, "\n", "\\n")
+							escapedThinking = strings.ReplaceAll(escapedThinking, "\"", "\\\"")
+							thinkingData := fmt.Sprintf("data: {\"thinking_content\": \"%s\"}\n\n", escapedThinking)
+							e.Response.Write([]byte(thinkingData))
+							if flusher, ok := e.Response.(http.Flusher); ok {
+								flusher.Flush()
+							}
+						}
+					}
+				}
+			}
 
-			// Send to client
-			escapedContent := strings.ReplaceAll(content, "\n", "\\n")
-			sseData := "data: " + escapedContent + "\n\n"
-			e.Response.Write([]byte(sseData))
+			// Handle regular content
+			if chunk.Choices[0].Delta.Content != "" {
+				content := chunk.Choices[0].Delta.Content
 
-			if flusher, ok := e.Response.(http.Flusher); ok {
-				flusher.Flush()
+				// If this is the first content and reasoning was enabled, send thinking end signal
+				if !hasStartedContent && useReasoning {
+					hasStartedContent = true
+					thinkingEndData := "data: {\"thinking\": false}\n\n"
+					e.Response.Write([]byte(thinkingEndData))
+					if flusher, ok := e.Response.(http.Flusher); ok {
+						flusher.Flush()
+					}
+				}
+
+				// Accumulate response content
+				responseBuilder.WriteString(content)
+
+				// Send to client
+				escapedContent := strings.ReplaceAll(content, "\n", "\\n")
+				sseData := "data: " + escapedContent + "\n\n"
+				e.Response.Write([]byte(sseData))
+
+				if flusher, ok := e.Response.(http.Flusher); ok {
+					flusher.Flush()
+				}
 			}
 		}
 
@@ -309,6 +360,7 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 
 	// Save the conversation message to database
 	response := responseBuilder.String()
+	thinkingContent := thinkingBuilder.String()
 
 	reasoningTokens := int64(0)
 	inputTokens := int64(0)
@@ -334,6 +386,8 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 		ConversationId:  conversationId,
 		UserMessage:     userMessage,
 		ResponseMessage: response,
+		ThinkingContent: thinkingContent,
+		Model:           model,
 		InputTokens:     strconv.FormatInt(inputTokens, 10),
 		OutputTokens:    strconv.FormatInt(outputTokens, 10),
 		ReasoningTokens: strconv.FormatInt(reasoningTokens, 10),
@@ -437,6 +491,8 @@ func GetConversationHandler(e *core.RequestEvent) error {
 			Id:              msg.Id,
 			UserMessage:     msg.UserMessage,
 			ResponseMessage: msg.ResponseMessage,
+			ThinkingContent: msg.ThinkingContent,
+			Model:           msg.Model,
 			InputTokens:     inputTokens,
 			OutputTokens:    outputTokens,
 			ReasoningTokens: reasoningTokens,
@@ -510,6 +566,8 @@ func GetConversationsHandler(e *core.RequestEvent) error {
 				Id:              msg.Id,
 				UserMessage:     msg.UserMessage,
 				ResponseMessage: msg.ResponseMessage,
+				ThinkingContent: msg.ThinkingContent,
+				Model:           msg.Model,
 				InputTokens:     inputTokens,
 				OutputTokens:    outputTokens,
 				ReasoningTokens: reasoningTokens,

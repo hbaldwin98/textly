@@ -4,8 +4,11 @@ export interface ConversationMessage {
   id: string;
   user_message: string;
   response_message: string;
+  thinking_content?: string;
+  model: string;
   input_tokens: number;
   output_tokens: number;
+  reasoning_tokens?: number;
   cost: number;
   active: boolean;
   created: string;

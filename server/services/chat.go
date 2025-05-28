@@ -66,9 +66,14 @@ func Chat(messages []Message, model string, useReasoning bool) *ssestream.Stream
 		MaxTokens: param.NewOpt(int64(4000)),
 	}
 
-	if useReasoning {
+	// Add reasoning effort for o1 models
+	if useReasoning && strings.Contains(strings.ToLower(selectedModel), "o1") {
 		params.ReasoningEffort = openai.ReasoningEffortMedium
 	}
+
+	// For other reasoning models (like DeepSeek), we would need to add include_reasoning
+	// This would require using a different client or modifying the request
+	// For now, we'll handle this in a future update when we support other providers
 
 	return client.Chat.Completions.NewStreaming(context.TODO(), params)
 }
@@ -233,6 +238,7 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 		ConversationId:  createdConversation.Id,
 		UserMessage:     userMessage,
 		ResponseMessage: suggestionText,
+		Model:           os.Getenv("OPENAI_BASE_MODEL"),
 		InputTokens:     strconv.FormatInt(inputTokens, 10),
 		OutputTokens:    strconv.FormatInt(outputTokens, 10),
 		Cost:            fmt.Sprintf("%.6f", totalCost),

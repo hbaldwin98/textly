@@ -16,6 +16,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  thinking?: boolean;
+  thinkingContent?: string;
 }
 
 export interface ChatConversation {
@@ -414,6 +416,86 @@ class AIService {
                       } catch (e) {
                         console.warn('Failed to parse message ID event:', e);
                       }
+                    } else if (data.startsWith('{') && (data.includes('thinking') || data.includes('thinking_content'))) {
+                      // Handle thinking state and content events
+                      try {
+                        const parsed = JSON.parse(data);
+                        
+                        if (typeof parsed.thinking === 'boolean') {
+                          // Update thinking state
+                          const updatedAssistantMessage = {
+                            ...assistantMessage,
+                            thinking: parsed.thinking
+                          };
+
+                          // Update conversation with thinking state
+                          const updatedConversation = {
+                            ...conversationForUI,
+                            messages: [
+                              ...conversationForUI.messages.slice(0, -1),
+                              updatedAssistantMessage
+                            ],
+                            updatedAt: Date.now()
+                          };
+
+                          // Update store with thinking state
+                          this.store.update(state => {
+                            const updatedConversations = state.conversations.map(c =>
+                              c.id === updatedConversation.id ? updatedConversation : c
+                            );
+
+                            return {
+                              ...state,
+                              currentConversation: state.currentConversation?.id === updatedConversation.id ? updatedConversation : state.currentConversation,
+                              conversations: updatedConversations,
+                              isChatLoading: true,
+                            };
+                          });
+
+                          // Update conversationForUI for next iteration
+                          conversationForUI = updatedConversation;
+                          assistantMessage.thinking = parsed.thinking;
+                        }
+                        
+                        if (parsed.thinking_content) {
+                          // Append thinking content
+                          const currentThinkingContent = assistantMessage.thinkingContent || '';
+                          const updatedAssistantMessage = {
+                            ...assistantMessage,
+                            thinkingContent: currentThinkingContent + parsed.thinking_content
+                          };
+
+                          // Update conversation with thinking content
+                          const updatedConversation = {
+                            ...conversationForUI,
+                            messages: [
+                              ...conversationForUI.messages.slice(0, -1),
+                              updatedAssistantMessage
+                            ],
+                            updatedAt: Date.now()
+                          };
+
+                          // Update store with thinking content
+                          this.store.update(state => {
+                            const updatedConversations = state.conversations.map(c =>
+                              c.id === updatedConversation.id ? updatedConversation : c
+                            );
+
+                            return {
+                              ...state,
+                              currentConversation: state.currentConversation?.id === updatedConversation.id ? updatedConversation : state.currentConversation,
+                              conversations: updatedConversations,
+                              isChatLoading: true,
+                            };
+                          });
+
+                          // Update conversationForUI for next iteration
+                          conversationForUI = updatedConversation;
+                          assistantMessage.thinkingContent = updatedAssistantMessage.thinkingContent;
+                        }
+                      } catch (e) {
+                        console.warn('Failed to parse thinking event:', e);
+                      }
                     } else {
                       // Unescape newlines and add content to accumulated content
                       const unescapedData = data.replace(/\\n/g, '\n');
@@ -706,6 +788,86 @@ class AIService {
                       } catch (e) {
                         console.warn('Failed to parse message ID event:', e);
                       }
+                    } else if (data.startsWith('{') && (data.includes('thinking') || data.includes('thinking_content'))) {
+                      // Handle thinking state and content events
+                      try {
+                        const parsed = JSON.parse(data);
+                        
+                        if (typeof parsed.thinking === 'boolean') {
+                          // Update thinking state
+                          const updatedAssistantMessage = {
+                            ...assistantMessage,
+                            thinking: parsed.thinking
+                          };
+
+                          // Update conversation with thinking state
+                          const updatedConversation = {
+                            ...conversationForUI,
+                            messages: [
+                              ...conversationForUI.messages.slice(0, -1),
+                              updatedAssistantMessage
+                            ],
+                            updatedAt: Date.now()
+                          };
+
+                          // Update store with thinking state
+                          this.store.update(state => {
+                            const updatedConversations = state.conversations.map(c =>
+                              c.id === updatedConversation.id ? updatedConversation : c
+                            );
+
+                            return {
+                              ...state,
+                              currentConversation: state.currentConversation?.id === updatedConversation.id ? updatedConversation : state.currentConversation,
+                              conversations: updatedConversations,
+                              isChatLoading: true,
+                            };
+                          });
+
+                          // Update conversationForUI for next iteration
+                          conversationForUI = updatedConversation;
+                          assistantMessage.thinking = parsed.thinking;
+                        }
+                        
+                        if (parsed.thinking_content) {
+                          // Append thinking content
+                          const currentThinkingContent = assistantMessage.thinkingContent || '';
+                          const updatedAssistantMessage = {
+                            ...assistantMessage,
+                            thinkingContent: currentThinkingContent + parsed.thinking_content
+                          };
+
+                          // Update conversation with thinking content
+                          const updatedConversation = {
+                            ...conversationForUI,
+                            messages: [
+                              ...conversationForUI.messages.slice(0, -1),
+                              updatedAssistantMessage
+                            ],
+                            updatedAt: Date.now()
+                          };
+
+                          // Update store with thinking content
+                          this.store.update(state => {
+                            const updatedConversations = state.conversations.map(c =>
+                              c.id === updatedConversation.id ? updatedConversation : c
+                            );
+
+                            return {
+                              ...state,
+                              currentConversation: state.currentConversation?.id === updatedConversation.id ? updatedConversation : state.currentConversation,
+                              conversations: updatedConversations,
+                              isChatLoading: true,
+                            };
+                          });
+
+                          // Update conversationForUI for next iteration
+                          conversationForUI = updatedConversation;
+                          assistantMessage.thinkingContent = updatedAssistantMessage.thinkingContent;
+                        }
+                      } catch (e) {
+                        console.warn('Failed to parse thinking event:', e);
+                      }
                     } else {
                       // Unescape newlines and add content to accumulated content
                       const unescapedData = data.replace(/\\n/g, '\n');
@@ -902,6 +1064,7 @@ class AIService {
             id: msg.id + '_assistant', // Derived ID for assistant response
             role: 'assistant',
             content: msg.response_message,
+            thinkingContent: msg.thinking_content || undefined,
             timestamp: new Date(msg.created).getTime() + 1 // Slightly later timestamp
           });
         }
