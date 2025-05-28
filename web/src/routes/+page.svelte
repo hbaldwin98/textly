@@ -211,7 +211,6 @@
       <div class="h-full overflow-hidden">
         {#if viewMode === "editor"}
           <EditorPane
-            content={editorContent}
             spellcheck={isSpellcheckEnabled}
             onContentChange={handleContentChange}
             class="w-full h-full"
@@ -220,7 +219,6 @@
           <PreviewPane content={editorContent} class="w-full h-full" />
         {:else if viewMode === "focus"}
           <ImmersivePane
-            content={editorContent}
             spellcheck={isSpellcheckEnabled}
             currentWidth={contentWidth}
             onContentChange={handleContentChange}
@@ -229,7 +227,6 @@
           <!-- Split view -->
           <div class="flex h-full w-full">
             <EditorPane
-              content={editorContent}
               spellcheck={isSpellcheckEnabled}
               onContentChange={handleContentChange}
               class="transition-none flex-shrink-0"

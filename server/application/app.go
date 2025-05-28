@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"textly/hooks"
 	"textly/routes"
 	"textly/services"
 
@@ -60,6 +61,24 @@ func BindAppHooks(app core.App, loadCerts bool) {
 		// }
 
 		return se.Next()
+	})
+
+	app.OnRecordCreateRequest("documents").BindFunc(func(e *core.RecordRequestEvent) error {
+		err := hooks.PreventCircularReference(app, e.Record)
+		if err != nil {
+			return err
+		}
+
+		return e.Next()
+	})
+
+	app.OnRecordUpdateRequest("documents").BindFunc(func(e *core.RecordRequestEvent) error {
+		err := hooks.PreventCircularReference(app, e.Record)
+		if err != nil {
+			return err
+		}
+
+		return e.Next()
 	})
 }
 

@@ -1,16 +1,66 @@
 import { DocumentService, type Document } from './document.service';
-import { documentActions } from '$lib/stores/document.store';
+import { documentActions, documentStore } from '$lib/stores/document.store';
+import { get } from 'svelte/store';
 
 export class DocumentManagerService {
     private static instance: DocumentManagerService;
     private documentService: DocumentService;
     private currentDocumentId: string | null = null;
-    private saveTimeout: ReturnType<typeof setTimeout> | null = null;
     private unsubscribeFromDocument: (() => void) | null = null;
-    private readonly SAVE_DELAY = 1000;
+    private readonly SAVE_DELAY = 100;
+    private debouncedSave: ((content: string) => Promise<void>) | null = null;
+    private pendingSavePromise: Promise<void> | null = null;
 
     private constructor() {
         this.documentService = DocumentService.getInstance();
+        this.debouncedSave = this.createDebouncedSave();
+    }
+
+    /**
+     * Create a debounced save function
+     */
+    private createDebouncedSave(): (content: string) => Promise<void> {
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        let currentResolve: (() => void) | null = null;
+        let currentReject: ((error: any) => void) | null = null;
+        let targetDocumentId: string | null = null;
+
+        return (content: string): Promise<void> => {
+            return new Promise((resolve, reject) => {
+                // Clear any existing timeout and reject previous promise
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    if (currentResolve) {
+                        currentResolve(); // Resolve previous promise since it's being superseded
+                    }
+                }
+
+                currentResolve = resolve;
+                currentReject = reject;
+                targetDocumentId = this.currentDocumentId;
+
+                timeoutId = setTimeout(async () => {
+                    try {
+                        // Only save if we're still editing the same document
+                        if (targetDocumentId && targetDocumentId === this.currentDocumentId) {
+                            await this.documentService.updateDocument(targetDocumentId, { content });
+                        }
+                        if (currentResolve) {
+                            currentResolve();
+                            currentResolve = null;
+                            currentReject = null;
+                        }
+                    } catch (error) {
+                        console.error('Failed to save document:', error);
+                        if (currentReject) {
+                            currentReject(error);
+                            currentResolve = null;
+                            currentReject = null;
+                        }
+                    }
+                }, this.SAVE_DELAY);
+            });
+        };
     }
 
     public static getInstance(): DocumentManagerService {
@@ -25,11 +75,14 @@ export class DocumentManagerService {
      */
     public async loadDocument(documentId: string): Promise<void> {
         try {
+            // Clear any pending saves on the previous document
+            this.clearCurrentDocument();
+
             const document = await this.documentService.getDocument(documentId);
             this.currentDocumentId = documentId;
+
             documentActions.setCurrentDocument(document);
-            
-            // Subscribe to real-time updates for this document
+            this.debouncedSave = this.createDebouncedSave();
             this.subscribeToCurrentDocument();
         } catch (error) {
             console.error('Failed to load document:', error);
@@ -40,14 +93,13 @@ export class DocumentManagerService {
     /**
      * Create a new document and set it as current
      */
-    public async createDocument(title: string, content: string = ''): Promise<Document> {
+    public async createDocument(title: string, content: string = '', parentId?: string): Promise<Document> {
         try {
-            const document = await this.documentService.createDocument(title, content);
+            const document = await this.documentService.createDocument(title, content, undefined, parentId || undefined);
             this.currentDocumentId = document.id;
             documentActions.setCurrentDocument(document);
             documentActions.addDocument(document);
 
-            // Subscribe to real-time updates for this document
             this.subscribeToCurrentDocument();
 
             return document;
@@ -58,36 +110,52 @@ export class DocumentManagerService {
     }
 
     /**
+     * Create a new folder
+     */
+    public async createFolder(title: string, parentId?: string): Promise<Document> {
+        try {
+            const folder = await this.documentService.createFolder(title, parentId || undefined);
+            documentActions.addDocument(folder);
+            return folder;
+        } catch (error) {
+            documentActions.setError(error instanceof Error ? error.message : 'Failed to create folder');
+            throw error;
+        }
+    }
+
+    /**
      * Update the current document's content (with debounced auto-save)
      */
     public async updateContent(content: string): Promise<void> {
         if (!this.currentDocumentId) return;
 
-        // Clear any existing timeout
-        if (this.saveTimeout) {
-            clearTimeout(this.saveTimeout);
+        // Immediately update the local store for instant UI feedback
+        const currentDoc = get(documentStore).currentDocument;
+        if (currentDoc) {
+            const updatedDocument = {
+                ...currentDoc,
+                content,
+                updated: new Date().toISOString()
+            };
+            documentActions.updateDocument(updatedDocument);
+            documentActions.setCurrentDocument(updatedDocument);
         }
 
-        // Set a new timeout for auto-save
-        this.saveTimeout = setTimeout(async () => {
-            try {
-                const updatedDocument = await this.documentService.updateDocument(this.currentDocumentId!, { content });
-                documentActions.updateDocument(updatedDocument);
-            } catch (error) {
-                console.error('Failed to save document:', error);
-            }
-        }, this.SAVE_DELAY);
+        if (!this.debouncedSave) return;
+        // Debounce the server save in the background
+        try {
+            await this.debouncedSave(content);
+        } catch (error) {
+            // Error is already logged in debouncedSave
+        }
     }
 
     /**
-     * Update the current document's title
+     * Update the document's title
      */
-    public async updateTitle(title: string): Promise<void> {
-        if (!this.currentDocumentId) return;
-
+    public async updateTitle(documentId: string, title: string): Promise<void> {
         try {
-            const updatedDocument = await this.documentService.updateDocument(this.currentDocumentId, { title });
-            documentActions.updateDocument(updatedDocument);
+            await this.documentService.updateDocument(documentId, { title });
         } catch (error) {
             console.error('Failed to update title:', error);
             throw error;
@@ -95,17 +163,19 @@ export class DocumentManagerService {
     }
 
     /**
-     * Save the current document immediately
+     * Delete a document by ID
      */
-    public async saveCurrentDocument(updates: Partial<Pick<Document, 'title' | 'content' | 'metadata'>>): Promise<void> {
-        if (!this.currentDocumentId) return;
-
+    public async deleteDocument(documentId: string): Promise<void> {
         try {
-            const updatedDocument = await this.documentService.updateDocument(this.currentDocumentId, updates);
-            documentActions.updateDocument(updatedDocument);
-            documentActions.setCurrentDocument(updatedDocument);
+            // If we're deleting the current document, clear it first to prevent any pending saves
+            if (this.currentDocumentId === documentId) {
+                this.clearCurrentDocument();
+            }
+
+            await this.documentService.deleteDocument(documentId);
+            documentActions.removeDocument(documentId);
         } catch (error) {
-            documentActions.setError(error instanceof Error ? error.message : 'Failed to save document');
+            documentActions.setError(error instanceof Error ? error.message : 'Failed to delete document');
             throw error;
         }
     }
@@ -136,18 +206,15 @@ export class DocumentManagerService {
     }
 
     /**
-     * Clear the current document
+     * Clear the current document and any pending saves
      */
     public clearCurrentDocument(): void {
         this.unsubscribeFromCurrentDocument();
         this.currentDocumentId = null;
         documentActions.setCurrentDocument(null);
-        
-        // Clear any pending save
-        if (this.saveTimeout) {
-            clearTimeout(this.saveTimeout);
-            this.saveTimeout = null;
-        }
+
+        // Reset debounced save to clear any pending saves
+        this.debouncedSave = this.createDebouncedSave();
     }
 
     /**
@@ -159,13 +226,12 @@ export class DocumentManagerService {
         this.unsubscribeFromDocument = this.documentService.subscribeToDocument(
             this.currentDocumentId,
             (data) => {
-                // Handle real-time updates
                 if (data.action === 'update' && data.record) {
                     const updatedDocument = data.record as Document;
+                    // Always update with server content - components decide how to handle updates
                     documentActions.updateDocument(updatedDocument);
                     documentActions.setCurrentDocument(updatedDocument);
                 } else if (data.action === 'delete') {
-                    // Document was deleted by another client
                     documentActions.removeDocument(this.currentDocumentId!);
                     this.clearCurrentDocument();
                 }
@@ -188,8 +254,7 @@ export class DocumentManagerService {
      */
     public destroy(): void {
         this.unsubscribeFromCurrentDocument();
-        if (this.saveTimeout) {
-            clearTimeout(this.saveTimeout);
-        }
+        // Clear any pending saves by setting debouncedSave to null
+        this.debouncedSave = null;
     }
 } 

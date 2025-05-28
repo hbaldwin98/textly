@@ -27,3 +27,11 @@ type ConversationMessage struct {
 	Active          bool   `db:"active"`
 	Created         string `db:"created"`
 }
+
+type Document struct {
+	Id       string `db:"id"`
+	Parent   string `db:"parent"`
+	IsFolder bool   `db:"is_folder"`
+	Created  string `db:"created"`
+	Updated  string `db:"updated"`
+}

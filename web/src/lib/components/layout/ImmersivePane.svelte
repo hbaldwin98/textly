@@ -10,30 +10,44 @@
   import { onMount } from "svelte";
   import { replaceAll } from "@milkdown/kit/utils";
   import PreviewPane from "../editor/PreviewPane.svelte";
+  import { documentStore } from "$lib/stores/document.store";
+  import { cursor } from "@milkdown/kit/plugin/cursor";
+  import { trailing } from "@milkdown/kit/plugin/trailing";
 
   // Props
-  export let content = "";
-  export let spellcheck = true;
-  export let maxWidth:
-    | "sm"
-    | "md"
-    | "lg"
-    | "xl"
-    | "2xl"
-    | "3xl"
-    | "4xl"
-    | "5xl"
-    | "6xl"
-    | "7xl"
-    | "full" = "2xl";
-  export let currentWidth = maxWidth;
-  export let onContentChange: ((content: string) => void) | undefined =
-    undefined;
+  interface Props {
+    spellcheck?: boolean;
+    maxWidth?:
+      | "sm"
+      | "md"
+      | "lg"
+      | "xl"
+      | "2xl"
+      | "3xl"
+      | "4xl"
+      | "5xl"
+      | "6xl"
+      | "7xl"
+      | "full";
+    currentWidth?: string;
+    onContentChange?: ((content: string) => void) | undefined;
+  }
 
-  let showPreview = false;
+  let {
+    spellcheck = true,
+    maxWidth = "2xl",
+    currentWidth = maxWidth,
+    onContentChange = undefined,
+  }: Props = $props();
+
+  let showPreview = $state(false);
   let editorElement: HTMLElement;
   let editorInstance: Editor | null = null;
   let currentSpellcheck = spellcheck;
+  let currentDocumentId: string | null = null; // Track current document ID
+
+  // Get document from store
+  let currentDoc = $derived($documentStore.currentDocument);
 
   function getMaxWidthClass(width: string): string {
     switch (width) {
@@ -64,9 +78,14 @@
     }
   }
 
-  $: if (editorInstance) {
-    updateEditorContent(content);
-  }
+  // Update editor content when document ID changes
+  $effect(() => {
+    let document = currentDoc;
+    if (editorInstance && document && document.id !== currentDocumentId) {
+      updateEditorContent(document.content);
+      currentDocumentId = document.id;
+    }
+  });
 
   function updateEditorContent(newContent: string) {
     if (!editorInstance) return;
@@ -83,9 +102,10 @@
     const makeEditor = Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, editorElement);
-        ctx.set(defaultValueCtx, content);
+        ctx.set(defaultValueCtx, currentDoc?.content || "");
         ctx.get(listenerCtx).markdownUpdated((_, markdown, prevMarkdown) => {
           if (markdown !== prevMarkdown) {
+            currentDocumentId = currentDoc?.id || null;
             onContentChange?.(markdown);
           }
         });
@@ -95,6 +115,8 @@
       .use(gfm)
       .use(history)
       .use(clipboard)
+      .use(trailing)
+      .use(cursor)
       .use(listener)
       .create();
 
@@ -155,10 +177,12 @@
   }
 
   // Update spellcheck when the prop changes
-  $: if (editorInstance && spellcheck !== currentSpellcheck) {
-    currentSpellcheck = spellcheck;
-    setTimeout(() => updateSpellcheck(), 50);
-  }
+  $effect(() => {
+    if (editorInstance && spellcheck !== currentSpellcheck) {
+      currentSpellcheck = spellcheck;
+      updateSpellcheck();
+    }
+  });
 
   function editor(dom: HTMLElement) {
     editorElement = dom;
@@ -175,8 +199,6 @@
       togglePreview();
     }
   }
-
-  $: renderedContent = showPreview ? marked(content || "") : "";
 
   onMount(() => {
     return () => {
@@ -195,7 +217,7 @@
       )} mx-auto px-8 py-2 lg:px-12 lg:py-4 xl:px-16 xl:py-6"
     >
       {#if showPreview}
-        <PreviewPane {content} />
+        <PreviewPane content={currentDoc?.content || ""} />
       {:else}
         <div
           class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-4 min-h-[600px]

@@ -2,26 +2,33 @@
   import { onMount, onDestroy } from 'svelte';
   import { EditorView, basicSetup } from 'codemirror';
   import { markdown } from '@codemirror/lang-markdown';
-  import { Compartment } from '@codemirror/state';
+  import { Compartment, Annotation } from '@codemirror/state';
   import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
   import { tags } from '@lezer/highlight';
+  import { documentStore } from '$lib/stores/document.store';
   
   // Props
   interface Props {
-    content: string;
     spellcheck: boolean;
     onContentChange: (content: string) => void;
     class?: string;
     style?: string;
   }
   
-  let { content, spellcheck, onContentChange, class: className = '', style = '' }: Props = $props();
+  let { spellcheck, onContentChange, class: className = '', style = '' }: Props = $props();
   
   let editorElement: HTMLDivElement;
   let editor: EditorView | null = null;
+  let currentDocumentId: string | null = null; // Track current document ID
+  
+  // Get document from store
+  let currentDoc = $derived($documentStore.currentDocument);
   
   // Theme compartment for dynamic switching
   const themeCompartment = new Compartment();
+  
+  // Define annotation for programmatic updates
+  const programmaticAnnotation = Annotation.define<boolean>();
   
   // Custom light theme that matches Tailwind
   const lightTheme = EditorView.theme({
@@ -202,7 +209,7 @@
     
     editor = new EditorView({
       parent: editorElement,
-      doc: content,
+      doc: currentDoc?.content || '',
       extensions: [
         basicSetup,
         markdown(),
@@ -211,7 +218,16 @@
         spellcheckExtension,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
-            onContentChange(update.state.doc.toString());
+            // Check if this change was programmatic by looking for our annotation
+            const isProgrammatic = update.transactions.some(tr => 
+              tr.annotation(programmaticAnnotation) === true
+            );
+            
+            if (!isProgrammatic) {
+              // This is user input
+              currentDocumentId = currentDoc?.id || null;
+              onContentChange(update.state.doc.toString());
+            }
           }
         })
       ],
@@ -239,16 +255,21 @@
     editor?.destroy();
   });
   
-  // Update content when prop changes
+  // Update content when document ID changes
   $effect(() => {
-    if (editor && content !== editor.state.doc.toString()) {
+    let document = currentDoc;
+    if (editor && document && document.id !== currentDocumentId) {
       editor.dispatch({
         changes: {
           from: 0,
           to: editor.state.doc.length,
-          insert: content
-        }
+          insert: document.content
+        },
+        annotations: [
+          programmaticAnnotation.of(true)
+        ]
       });
+      currentDocumentId = document.id;
     }
   });
   

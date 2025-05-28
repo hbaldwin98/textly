@@ -22,6 +22,7 @@ var rules = []string{
 	"You can help users with writing, editing, research, and general questions.",
 	"Be concise but helpful, and format your responses in markdown when appropriate.",
 	"If the user asks about text editing or writing, you can provide specific suggestions.",
+	"Do not give suggestions or tips for using Textly except for the context provided by these rules.",
 }
 
 type MessageRole string
@@ -71,7 +72,8 @@ func Chat(messages []Message) *ssestream.Stream[openai.ChatCompletionChunk] {
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
 		},
-		Model: os.Getenv("OPENAI_BASE_MODEL"), // "meta-llama/llama-3.1-70b-instruct"
+		Model:     os.Getenv("OPENAI_BASE_MODEL"), // "meta-llama/llama-3.1-70b-instruct"
+		MaxTokens: param.NewOpt(int64(4000)),
 	})
 
 	return stream
@@ -127,17 +129,11 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 
 	// Use streaming to get usage data with cost
 	stream := client.Chat.Completions.NewStreaming(context.TODO(), openai.ChatCompletionNewParams{
-		Messages: messages,
-		Model:    os.Getenv("OPENAI_BASE_MODEL"), // "meta-llama/llama-3.1-70b-instruct"
+		Messages:  messages,
+		Model:     os.Getenv("OPENAI_BASE_MODEL"), // "meta-llama/llama-3.1-70b-instruct"
+		MaxTokens: param.NewOpt(int64(4000)),
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
-		},
-		Tools: []openai.ChatCompletionToolParam{{
-			Function: openai.FunctionDefinitionParam{
-				Name:        "web_search_preview",
-				Description: param.NewOpt("Search the web for current information"),
-			},
-		},
 		},
 	})
 
