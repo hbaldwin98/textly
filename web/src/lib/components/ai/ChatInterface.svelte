@@ -82,6 +82,18 @@
     }
   }
 
+  // Function to convert thinking content newlines to HTML breaks
+  function formatThinkingContent(content: string): string {
+    // First unescape any escaped characters and trim whitespace
+    const unescaped = content
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+      .trim();
+    // Then convert newlines to HTML breaks
+    return unescaped.replace(/\n/g, '<br>');
+  }
+
   // Create a Svelte action for markdown rendering
   function markdownAction(node: HTMLElement, params: [string, string]) {
     const [content, messageId] = params;
@@ -444,8 +456,8 @@
                             <span class="text-xs">💭 View thinking process</span>
                           </summary>
                           <div class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600">
-                            <div class="whitespace-pre-wrap text-gray-700 dark:text-zinc-300 font-mono text-xs">
-                              {message.thinkingContent}
+                            <div class="text-gray-700 dark:text-zinc-300 font-mono text-xs">
+                              {@html formatThinkingContent(message.thinkingContent)}
                             </div>
                           </div>
                         </details>
@@ -461,8 +473,8 @@
                             <span class="text-xs">💭 View thinking process</span>
                           </summary>
                           <div class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600">
-                            <div class="whitespace-pre-wrap text-gray-700 dark:text-zinc-300 font-mono text-xs">
-                              {message.thinkingContent}
+                            <div class="text-gray-700 dark:text-zinc-300 font-mono text-xs">
+                              {@html formatThinkingContent(message.thinkingContent)}
                             </div>
                           </div>
                         </details>

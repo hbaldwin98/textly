@@ -157,9 +157,23 @@ func ModelsHandler(e *core.RequestEvent) error {
 	models := map[string]interface{}{
 		"models": []map[string]interface{}{
 			{
+				"id":          "openai/gpt-4.1",
+				"name":        "GPT-4.1",
+				"description": "Most capable model with advanced reasoning",
+				"icon":        "🤖",
+				"capabilities": map[string]bool{
+					"reasoning": false,
+					"internet":  true,
+					"standard":  true,
+				},
+				"provider": "OpenAI",
+				"default":  false,
+			},
+
+			{
 				"id":          "openai/gpt-4o",
 				"name":        "GPT-4o",
-				"description": "Most capable model with advanced reasoning",
+				"description": "More capable model with advanced reasoning",
 				"icon":        "🤖",
 				"capabilities": map[string]bool{
 					"reasoning": false,

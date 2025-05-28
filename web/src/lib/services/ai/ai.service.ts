@@ -458,11 +458,16 @@ class AIService {
                         }
                         
                         if (parsed.thinking_content) {
-                          // Append thinking content
+                          // Append thinking content with proper unescaping
                           const currentThinkingContent = assistantMessage.thinkingContent || '';
+                          // Unescape newlines and quotes in thinking content
+                          const unescapedThinkingContent = parsed.thinking_content
+                            .replace(/\\n/g, '\n')
+                            .replace(/\\"/g, '"')
+                            .replace(/\\\\/g, '\\');
                           const updatedAssistantMessage = {
                             ...assistantMessage,
-                            thinkingContent: currentThinkingContent + parsed.thinking_content
+                            thinkingContent: currentThinkingContent + unescapedThinkingContent
                           };
 
                           // Update conversation with thinking content
@@ -830,11 +835,16 @@ class AIService {
                         }
                         
                         if (parsed.thinking_content) {
-                          // Append thinking content
+                          // Append thinking content with proper unescaping
                           const currentThinkingContent = assistantMessage.thinkingContent || '';
+                          // Unescape newlines and quotes in thinking content
+                          const unescapedThinkingContent = parsed.thinking_content
+                            .replace(/\\n/g, '\n')
+                            .replace(/\\"/g, '"')
+                            .replace(/\\\\/g, '\\');
                           const updatedAssistantMessage = {
                             ...assistantMessage,
-                            thinkingContent: currentThinkingContent + parsed.thinking_content
+                            thinkingContent: currentThinkingContent + unescapedThinkingContent
                           };
 
                           // Update conversation with thinking content
