@@ -61,75 +61,89 @@
           ? 'bg-blue-500 text-white'
           : 'bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100'}"
       >
-        {#if message.role === "user" && isEditing}
-          <div class="flex flex-col">
+        {#if message.role === "user"}
+          {#if isEditing}
+            <div class="flex flex-col">
+              <div
+                contenteditable="true"
+                bind:this={editingElement}
+                bind:innerHTML={editingContent}
+                on:input={onInput}
+                on:keydown={onKeydown}
+                class="w-full bg-transparent outline-none whitespace-pre-wrap break-words min-h-[1.5em]"
+                role="textbox"
+                aria-multiline="true"
+                tabindex="0"
+              ></div>
+              <div class="flex justify-end gap-2 mt-2">
+                <button
+                  class="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
+                  on:click={onCancel}
+                  title="Cancel editing"
+                  disabled={isStreaming}
+                >
+                  Cancel
+                </button>
+                <button
+                  class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                  on:click={onApply}
+                  disabled={!editingContent.trim() || isStreaming}
+                  title="Apply changes and resubmit"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          {:else}
             <div
-              contenteditable="true"
-              bind:this={editingElement}
-              bind:innerHTML={editingContent}
-              on:input={onInput}
-              on:keydown={onKeydown}
-              class="w-full bg-transparent outline-none whitespace-pre-wrap break-words min-h-[1.5em]"
-              role="textbox"
-              aria-multiline="true"
-              tabindex="0"
-            ></div>
-            <div class="flex justify-end gap-2 mt-2">
-              <button
-                class="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
-                on:click={onCancel}
-                title="Cancel editing"
-                disabled={isStreaming}
-              >
-                Cancel
-              </button>
-              <button
-                class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                on:click={onApply}
-                disabled={!editingContent.trim() || isStreaming}
-                title="Apply changes and resubmit"
-              >
-                Apply
-              </button>
+              class="whitespace-pre-wrap break-words overflow-hidden {!isEditing
+                ? 'pr-8'
+                : ''}"
+            >
+              {message.content}
             </div>
-          </div>
-        {:else if message.role === "user"}
-          <div class="whitespace-pre-wrap break-words overflow-hidden {!isEditing ? 'pr-8' : ''}">
-            {message.content}
-          </div>
-        {:else if message.thinking && message.role === "assistant"}
-          <div class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400">
-            <div class="flex items-center space-x-1">
-              <div class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"></div>
-              <div class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-              <div class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-            </div>
-            <span class="text-sm">Thinking...</span>
-          </div>
+          {/if}
         {:else if message.role === "assistant"}
-          <div class="prose prose-sm dark:prose-invert max-w-none">
-            {#await marked.parse(message.content) then rendered}
-              {@html rendered}
-            {:catch}
-              {@html message.content.replace(/\n/g, "<br>")}
-            {/await}
-          </div>
-        {/if}
-
-        {#if isStreaming && isLastMessage && message.role === "assistant" && !message.thinking}
-          <div class="flex items-center space-x-1 mt-2">
-            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"></div>
-            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-          </div>
+          {#if message.thinking}
+            <div
+              class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400"
+            >
+              <div class="flex items-center space-x-1">
+                <div
+                  class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                ></div>
+                <div
+                  class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                  style="animation-delay: 0.1s"
+                ></div>
+                <div
+                  class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                  style="animation-delay: 0.2s"
+                ></div>
+              </div>
+              <span class="text-sm">Thinking...</span>
+            </div>
+          {:else}
+            <div class="prose prose-sm dark:prose-invert max-w-none">
+              {#await marked.parse(message.content) then rendered}
+                {@html rendered}
+              {:catch}
+                {@html message.content.replace(/\n/g, "<br>")}
+              {/await}
+            </div>
+          {/if}
         {/if}
 
         {#if message.thinkingContent}
           <details class="mt-2">
-            <summary class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100">
+            <summary
+              class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100"
+            >
               <span class="text-xs">💭 View thought process</span>
             </summary>
-            <div class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600">
+            <div
+              class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600"
+            >
               <div class="text-gray-700 dark:text-zinc-300 font-mono text-xs">
                 {@html formatThinkingContent(message.thinkingContent)}
               </div>
@@ -144,12 +158,20 @@
             title="Message options"
             aria-label="Message options menu"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"
+              />
             </svg>
           </button>
         {/if}
       </div>
+
       {#if message.role === "user" && !isEditing && isActiveMenu}
         <div
           class="message-menu absolute right-0 top-full mt-1 bg-white dark:bg-zinc-900 shadow-lg rounded-lg py-1 z-50 min-w-[120px]"
@@ -170,6 +192,22 @@
             </svg>
             Edit message
           </button>
+        </div>
+      {/if}
+
+      {#if isStreaming && isLastMessage && message.role === "assistant" && !message.thinking}
+        <div class="flex items-center space-x-1 mt-2">
+          <div
+            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+          ></div>
+          <div
+            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+            style="animation-delay: 0.1s"
+          ></div>
+          <div
+            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+            style="animation-delay: 0.2s"
+          ></div>
         </div>
       {/if}
     </div>
