@@ -1147,16 +1147,69 @@ class AIService {
   }
 
   // Existing methods
+  private trimContext(context: string, text: string, maxWords: number = 100): string {
+    if (!context) return '';
+    
+    // Split context into words
+    const words = context.split(/\s+/);
+    const textWords = text.split(/\s+/);
+    
+    // Find the position of the selected text in the context
+    const textStart = context.indexOf(text);
+    if (textStart === -1) return context; // If text not found, return full context
+    
+    // Calculate word positions
+    let beforeWordCount = 0;
+    let afterWordCount = 0;
+    let currentWordCount = 0;
+    
+    for (let i = 0; i < words.length; i++) {
+      if (currentWordCount < textStart) {
+        beforeWordCount++;
+      } else if (currentWordCount >= textStart + text.length) {
+        afterWordCount++;
+      }
+      currentWordCount += words[i].length + 1; // +1 for the space
+    }
+    
+    // Get surrounding words, excluding the selected text
+    const startIndex = Math.max(0, beforeWordCount - maxWords);
+    const endIndex = Math.min(words.length, beforeWordCount + textWords.length + maxWords);
+    
+    // Get the words and join them
+    let result = words.slice(startIndex, endIndex).join(' ');
+    
+    // Remove the selected text from the context
+    result = result.replace(text, '').trim();
+    
+    // If the result is longer than 1000 characters, trim it
+    if (result.length > 1000) {
+      // Find the last space before the 1000 character limit
+      const lastSpace = result.substring(0, 1000).lastIndexOf(' ');
+      if (lastSpace !== -1) {
+        result = result.substring(0, lastSpace) + '...';
+      } else {
+        // If no space found, just cut at 1000
+        result = result.substring(0, 1000) + '...';
+      }
+    }
+    
+    return result;
+  }
+
   public async getImprovement(text: string, context: string): Promise<string> {
-    return this.makeAIRequest('improvement', text, context);
+    const trimmedContext = this.trimContext(context, text);
+    return this.makeAIRequest('improvement', text, trimmedContext);
   }
 
-  public async getSynonyms(text: string): Promise<string> {
-    return this.makeAIRequest('synonyms', text);
+  public async getSynonyms(text: string, context: string): Promise<string> {
+    const trimmedContext = this.trimContext(context, text);
+    return this.makeAIRequest('synonyms', text, trimmedContext);
   }
 
-  public async getDescription(text: string): Promise<string> {
-    return this.makeAIRequest('description', text);
+  public async getDescription(text: string, context: string): Promise<string> {
+    const trimmedContext = this.trimContext(context, text);
+    return this.makeAIRequest('description', text, trimmedContext);
   }
 
   public clearError(): void {

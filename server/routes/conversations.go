@@ -296,22 +296,21 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 
 		// Check for reasoning content first (for models that support it)
 		if len(chunk.Choices) > 0 {
-			// Try to extract reasoning if available and reasoning is enabled
-			if useReasoning {
-				if chunkJSON := chunk.Choices[0].Delta.JSON.ExtraFields; chunkJSON != nil {
-					if reasoningField, exists := chunkJSON["reasoning"]; exists {
-						reasoningContent := reasoningField.Raw()
-						if reasoningContent != "" && reasoningContent != "null" {
-							// Remove quotes if present
-							if strings.HasPrefix(reasoningContent, "\"") && strings.HasSuffix(reasoningContent, "\"") {
-								reasoningContent = reasoningContent[1 : len(reasoningContent)-1]
-							}
-							thinkingBuilder.WriteString(reasoningContent)
+			if chunkJSON := chunk.Choices[0].Delta.JSON.ExtraFields; chunkJSON != nil {
+				if reasoningField, exists := chunkJSON["reasoning"]; exists {
+					reasoningContent := reasoningField.Raw()
+					if reasoningContent != "" && reasoningContent != "null" {
+						// Remove quotes if present
+						if strings.HasPrefix(reasoningContent, "\"") && strings.HasSuffix(reasoningContent, "\"") {
+							reasoningContent = reasoningContent[1 : len(reasoningContent)-1]
+						}
+						thinkingBuilder.WriteString(reasoningContent)
 
-							// Send thinking content to client
-							escapedThinking := strings.ReplaceAll(reasoningContent, "\n", "\\n")
-							escapedThinking = strings.ReplaceAll(escapedThinking, "\"", "\\\"")
-							thinkingData := fmt.Sprintf("data: {\"thinking_content\": \"%s\"}\n\n", escapedThinking)
+						// Send thinking content to client
+						escapedThinking := strings.ReplaceAll(reasoningContent, "\n", "\\n")
+						escapedThinking = strings.ReplaceAll(escapedThinking, "\"", "\\\"")
+						thinkingData := fmt.Sprintf("data: {\"thinking_content\": \"%s\"}\n\n", escapedThinking)
+						if useReasoning {
 							e.Response.Write([]byte(thinkingData))
 							if flusher, ok := e.Response.(http.Flusher); ok {
 								flusher.Flush()
@@ -349,10 +348,7 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 			}
 		}
 
-		// Capture usage data when available
-		if chunk.Usage.PromptTokens > 0 || chunk.Usage.CompletionTokens > 0 || chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
-			usage = &chunk.Usage
-		}
+		usage = &chunk.Usage
 	}
 
 	// Send completion event

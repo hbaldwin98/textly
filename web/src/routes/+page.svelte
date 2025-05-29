@@ -12,11 +12,11 @@
   import { authStore } from "$lib/stores/auth.store";
   import { DocumentManagerService } from "$lib/services/documents";
   import { DocumentCommandPalette } from "$lib/components/documents";
+  import { layoutStore } from "$lib/services/layout/layout.service";
 
-  // Reactive state
+  const layoutState = $derived($layoutStore);
   let viewMode = $state("split"); // 'split', 'editor', 'preview', 'focus'
   let isSpellcheckEnabled = $state(true);
-  let isAISidebarOpen = $state(false);
   let isCommandPaletteOpen = $state(false);
 
   // Auth and document state
@@ -129,10 +129,6 @@
       await restorePreviousDocument();
     }
   }
-
-
-
-  // Effect to handle auth state changes - clear document when user logs out
   $effect(() => {
     if (!isLoggedIn && documentManager) {
       documentManager.clearCurrentDocument();
@@ -197,7 +193,7 @@
     <!-- Main Content -->
     <div
       class="flex-1 transition-all duration-300 relative z-10"
-      class:mr-80={isAISidebarOpen}
+      class:mr-80={layoutState.isAIPanelOpen}
     >
       <Sidebar
         {viewMode}
@@ -245,7 +241,6 @@
     <!-- AI Suggestions Sidebar -->
     <div class="absolute right-0 top-0 h-full z-20">
       <AIPanel
-        bind:isOpen={isAISidebarOpen}
         context={editorContent}
         onSuggestionAccept={(suggestion) => {
           // TODO: Implement suggestion insertion

@@ -5,10 +5,14 @@ export const clipboardStore = writable<{
   content: string | null;
   lastCopied: string | null;
   error: string | null;
+  context: string | null;
+  selectedText: string | null;
 }>({
   content: null,
   lastCopied: null,
-  error: null
+  error: null,
+  context: null,
+  selectedText: null
 });
 
 class ClipboardService {
@@ -22,6 +26,20 @@ class ClipboardService {
       ClipboardService.instance = new ClipboardService();
     }
     return ClipboardService.instance;
+  }
+
+  public setContext(context: string): void {
+    this.store.update(state => ({
+      ...state,
+      context
+    }));
+  }
+
+  public setSelectedText(text: string): void {
+    this.store.update(state => ({
+      ...state,
+      selectedText: text
+    }));
   }
 
   public async copy(text: string): Promise<void> {

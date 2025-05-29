@@ -22,7 +22,7 @@
   async function getSynonyms() {
     if (!selectedText) return;
     try {
-      await aiService.getSynonyms(selectedText);
+      await aiService.getSynonyms(selectedText, context);
     } catch (err) {
       console.error("Failed to get synonyms:", err);
     }
@@ -32,7 +32,7 @@
   async function getDescription() {
     if (!selectedText) return;
     try {
-      await aiService.getDescription(selectedText);
+      await aiService.getDescription(selectedText, context);
     } catch (err) {
       console.error("Failed to get description:", err);
     }

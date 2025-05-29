@@ -143,7 +143,7 @@
   <div class="flex items-center gap-2">
     <!-- Model Selection Button -->
     <button
-      class="flex items-center gap-2 px-2 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex-1"
+      class="flex items-center gap-2 px-2 mr-0.5 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex-1"
       onclick={togglePane}
       disabled={modelState.isLoading}
       title="Select AI Model"

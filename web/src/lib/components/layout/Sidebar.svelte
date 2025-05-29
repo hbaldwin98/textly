@@ -8,6 +8,7 @@
   import { DocumentManagerService } from "$lib/services/documents";
   import FolderTree from "$lib/components/FolderTree.svelte";
   import type { Document } from "$lib/services/documents/document.service";
+  import { layoutStore } from "$lib/services/layout/layout.service";
 
   // Props
   interface Props {
@@ -51,8 +52,6 @@
     currentWidth,
     onWidthChange,
   }: Props = $props();
-
-  let isOpen = $state(false);
   let isHovering = $state(false);
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let isCommandPaletteOpen = $state(false);
@@ -69,7 +68,7 @@
   let userEmail = $derived(authState.user?.email || "");
   let activeDocument = $derived($currentDocument);
 
-  // Width options array for the slider
+  let layoutState = $derived($layoutStore);
   const widthOptions = [
     "sm",
     "md",
@@ -93,7 +92,7 @@
   });
 
   function toggleSidebar() {
-    isOpen = !isOpen;
+    layoutStore.toggleSidebar();
   }
 
   function handleMouseEnter() {
@@ -102,10 +101,10 @@
       clearTimeout(timeoutId);
       timeoutId = null;
     }
-    if (!isOpen) {
+    if (!layoutState.isSidebarOpen) {
       timeoutId = setTimeout(() => {
         if (isHovering) {
-          isOpen = true;
+          layoutStore.setSidebarOpen(true);
         }
       }, 300);
     }
@@ -119,7 +118,7 @@
     }
     timeoutId = setTimeout(() => {
       if (!isHovering) {
-        isOpen = false;
+        layoutStore.setSidebarOpen(false);
       }
     }, 500);
   }
@@ -184,7 +183,7 @@
 </script>
 
 <!-- Sidebar Toggle Tab (subtle edge trigger) -->
-{#if !isOpen}
+{#if !layoutState.isSidebarOpen}
   <button
     class="fixed top-1/2 left-0 -translate-y-1/2 z-50 w-4 h-16 bg-gray-600 dark:bg-zinc-600 text-white rounded-r-sm shadow-sm hover:w-6 hover:bg-gray-700 dark:hover:bg-zinc-700 transition-all duration-300 flex items-center justify-center group opacity-20 hover:opacity-60"
     onclick={toggleSidebar}
@@ -207,7 +206,9 @@
 <!-- Sidebar -->
 <div
   class="fixed top-0 left-0 h-full w-80 bg-gray-50 dark:bg-zinc-950 border-r border-gray-200 dark:border-zinc-800 shadow-xl z-40 transform transition-transform duration-300 ease-in-out flex flex-col
-         {isOpen ? 'translate-x-0' : '-translate-x-full'}"
+         {layoutState.isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}"
+  class:z-50={!layoutState.isAIPanelOpen}
+  class:z-40={layoutState.isAIPanelOpen}
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
   role="navigation"
@@ -516,7 +517,7 @@
 </div>
 
 <!-- Overlay for mobile -->
-{#if isOpen}
+{#if layoutState.isSidebarOpen}
   <button
     class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
     onclick={toggleSidebar}

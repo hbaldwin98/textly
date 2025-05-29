@@ -41,6 +41,42 @@
     }, 3000);
   }
 
+  // Function to get context from clipboard
+  function getContext(): string {
+    return clipboardState.context || '';
+  }
+
+  // Function to get selected text from clipboard
+  function getSelectedText(): string {
+    return clipboardState.selectedText || '';
+  }
+
+  // Function to handle quick actions
+  async function handleQuickAction(type: 'improvement' | 'synonyms' | 'description') {
+    const text = getSelectedText();
+    const context = getContext();
+
+    if (!text) return;
+
+    try {
+      let suggestion: string;
+      switch (type) {
+        case 'improvement':
+          suggestion = await aiService.getImprovement(text, context);
+          break;
+        case 'synonyms':
+          suggestion = await aiService.getSynonyms(text, context);
+          break;
+        case 'description':
+          suggestion = await aiService.getDescription(text, context);
+          break;
+      }
+      onSuggestionAccept(suggestion);
+    } catch (err) {
+      console.error(`Failed to get ${type}:`, err);
+    }
+  }
+
   // Function to format timestamp
   function formatTimestamp(timestamp: number): string {
     const date = new Date(timestamp);

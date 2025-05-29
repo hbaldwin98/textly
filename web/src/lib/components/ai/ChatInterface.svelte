@@ -1,26 +1,21 @@
 <script lang="ts">
-  import {
-    aiService,
-    aiStore,
-    type ChatMessage,
-    type ChatConversation,
-    modelService,
-  } from "$lib/services/ai";
+  import { aiService, aiStore, type ChatMessage } from "$lib/services/ai";
   import { onMount } from "svelte";
   import { marked } from "marked";
   import ModelSelector from "./ModelSelector.svelte";
 
   // State
-  let messageInput = "";
+  let messageInput = $state("");
   let chatContainer: HTMLElement;
-  let editingMessageId: string | null = null;
-  let editingContent = "";
-  let editingElement: HTMLElement | null = null;
-  let activeMenuMessageId: string | null = null;
+  let editingMessageId = $state<string | null>(null);
+  let editingContent = $state("");
+  let editingElement: HTMLElement | null = $state(null);
+  let activeMenuMessageId = $state<string | null>(null);
   let renderedContents = new Map<string, string>();
+  let isConversationPanelVisible = $state(false);
 
-  // Use Svelte's reactive store syntax for better reactivity
-  $: aiState = $aiStore;
+  // Subscribe to the store using runes
+  let aiState = $derived($aiStore);
 
   // Load conversations on mount
   onMount(async () => {
@@ -84,14 +79,23 @@
 
   // Function to convert thinking content newlines to HTML breaks
   function formatThinkingContent(content: string): string {
-    // First unescape any escaped characters and trim whitespace
-    const unescaped = content
-      .replace(/\\n/g, '\n')
-      .replace(/\\"/g, '"')
-      .replace(/\\\\/g, '\\')
-      .trim();
-    // Then convert newlines to HTML breaks
-    return unescaped.replace(/\n/g, '<br>');
+    if (!content?.trim()?.length) return content;
+
+    try {
+      // Use JSON.parse to handle all escape sequences at once
+      const unescaped = JSON.parse(`"${content.replace(/^"|"$/g, "")}"`).trim();
+      // Then convert newlines to HTML breaks
+      return unescaped.replace(/\n/g, "<br>");
+    } catch (e) {
+      // If JSON.parse fails, fall back to basic unescaping
+      console.warn("Failed to parse thinking content:", e);
+      return content
+        .replace(/\\n/g, "\n")
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, "\\")
+        .trim()
+        .replace(/\n/g, "<br>");
+    }
   }
 
   // Create a Svelte action for markdown rendering
@@ -108,11 +112,13 @@
   }
 
   // Handle side effects reactively
-  $: if (aiState.chatError) {
-    setTimeout(() => {
-      aiService.clearChatError();
-    }, 5000);
-  }
+  $effect(() => {
+    if (aiState.chatError) {
+      setTimeout(() => {
+        aiService.clearChatError();
+      }, 5000);
+    }
+  });
 
   // Auto-scroll for new messages and streaming content
   let previousMessageCount = 0;
@@ -126,31 +132,29 @@
     isUserNearBottom = scrollTop + clientHeight >= scrollHeight - 100;
   }
 
-  $: if (chatContainer && aiState.currentConversation?.messages) {
-    const currentMessageCount = aiState.currentConversation.messages.length;
-    const currentContentLength = aiState.currentConversation.messages
-      .map((m) => m.content.length)
-      .reduce((a, b) => a + b, 0);
+  $effect(() => {
+    if (chatContainer && aiState.currentConversation?.messages) {
+      const currentMessageCount = aiState.currentConversation.messages.length;
+      const currentContentLength = aiState.currentConversation.messages
+        .map((m) => m.content.length)
+        .reduce((a, b) => a + b, 0);
 
-    // Auto-scroll if:
-    // 1. New message added, OR
-    // 2. Content length increased (streaming), AND
-    // 3. User is near bottom
-    if (
-      (currentMessageCount > previousMessageCount ||
-        currentContentLength > previousContentLength) &&
-      isUserNearBottom
-    ) {
-      setTimeout(() => {
-        if (chatContainer && isUserNearBottom) {
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-      }, 10);
+      if (
+        (currentMessageCount > previousMessageCount ||
+          currentContentLength > previousContentLength) &&
+        isUserNearBottom
+      ) {
+        setTimeout(() => {
+          if (chatContainer && isUserNearBottom) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          }
+        }, 10);
+      }
+
+      previousMessageCount = currentMessageCount;
+      previousContentLength = currentContentLength;
     }
-
-    previousMessageCount = currentMessageCount;
-    previousContentLength = currentContentLength;
-  }
+  });
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -246,16 +250,9 @@
     try {
       await aiService.deleteConversation(conversationId);
     } catch (err) {
-      console.error('Failed to delete conversation:', err);
+      console.error("Failed to delete conversation:", err);
       // Error is already handled in the service and shown in the UI
     }
-  }
-
-  // Remove context menu state and functions
-  let hoveredMessage: ChatMessage | null = null;
-
-  function handleMessageHover(message: ChatMessage | null) {
-    hoveredMessage = message;
   }
 
   function toggleMessageMenu(messageId: string) {
@@ -274,41 +271,80 @@
 <svelte:window onclick={handleClickOutside} />
 
 <div class="flex flex-col h-full">
+  <!-- Conversation Panel Toggle -->
+  <div class="relative">
+    <div class="absolute right-2 flex items-center gap-2 z-50">
+      <button
+        class="px-3 py-1.5 text-sm text-gray-600 dark:text-zinc-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-md transition-colors flex items-center gap-2 shadow-sm border border-gray-200 dark:border-zinc-700 bg-opacity-25 hover:bg-opacity-100 transition-opacity duration-200 opacity-50 hover:opacity-100"
+        onclick={() =>
+          (isConversationPanelVisible = !isConversationPanelVisible)}
+        title={isConversationPanelVisible
+          ? "Hide Previous Conversations"
+          : "Show Previous Conversations"}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-4 w-4"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          {#if isConversationPanelVisible}
+            <path
+              fill-rule="evenodd"
+              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+              clip-rule="evenodd"
+            />
+          {:else}
+            <path
+              fill-rule="evenodd"
+              d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
+              clip-rule="evenodd"
+            />
+          {/if}
+        </svg>
+        {isConversationPanelVisible
+          ? "Hide Previous Conversations"
+          : "Show Previous Conversations"}
+      </button>
+    </div>
+  </div>
+
   <!-- Conversation List -->
-  <div class="border-b border-gray-200 dark:border-zinc-800 p-3">
+  <div
+    class="fixed top-32 left-0 right-0 z-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-3 shadow-lg rounded-lg mx-4"
+    class:hidden={!isConversationPanelVisible}
+  >
     <div class="flex items-center justify-between mb-3">
       <h4
         class="text-xs font-medium text-gray-600 dark:text-zinc-400 uppercase tracking-wide"
       >
         Conversations
       </h4>
-      <button
-        class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-        onclick={createNewConversation}
-        title="New Chat"
-        aria-label="Start New Chat"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-        </svg>
-      </button>
     </div>
 
     <div class="space-y-1 max-h-32 overflow-y-auto">
       {#each aiState.conversations as conversation}
         <div class="flex items-center gap-2 pr-2">
           <button
-            class="flex-1 text-left text-xs p-1.5 rounded hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate min-w-0"
-            class:bg-blue-50={aiState.currentConversation?.id === conversation.id}
-            class:dark:bg-blue-950={aiState.currentConversation?.id === conversation.id}
-            class:text-blue-600={aiState.currentConversation?.id === conversation.id}
-            class:dark:text-blue-400={aiState.currentConversation?.id === conversation.id}
+            class="flex-1 text-left text-xs p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate min-w-0"
+            class:bg-blue-50={aiState.currentConversation?.id ===
+              conversation.id}
+            class:dark:bg-blue-950={aiState.currentConversation?.id ===
+              conversation.id}
+            class:text-blue-600={aiState.currentConversation?.id ===
+              conversation.id}
+            class:dark:text-blue-400={aiState.currentConversation?.id ===
+              conversation.id}
             onclick={() => loadConversation(conversation.id)}
             title={conversation.title}
           >
             <div class="flex items-center justify-between gap-2 min-w-0">
-              <div class="font-medium truncate flex-1">{conversation.title}</div>
-              <div class="text-gray-500 dark:text-zinc-400 flex-shrink-0 text-right">
+              <div class="font-medium truncate flex-1">
+                {conversation.title}
+              </div>
+              <div
+                class="text-gray-500 dark:text-zinc-400 flex-shrink-0 text-right"
+              >
                 {formatTimestamp(conversation.updatedAt)}
               </div>
             </div>
@@ -316,7 +352,11 @@
           <button
             class="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
             onclick={() => {
-              if (confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+              if (
+                confirm(
+                  "Are you sure you want to delete this conversation? This action cannot be undone."
+                )
+              ) {
                 deleteConversation(conversation.id);
               }
             }}
@@ -345,14 +385,119 @@
         </div>
       {/if}
     </div>
+
+    <div
+      class="mt-2 pt-2 border-t border-gray-200 dark:border-zinc-800 flex justify-end"
+    >
+      <button
+        class="px-2 py-1 text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-colors flex items-center gap-1"
+        onclick={createNewConversation}
+        title="New Chat"
+        aria-label="Start New Chat"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-3 w-3"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        New
+      </button>
+    </div>
   </div>
 
   <!-- Chat Messages -->
   <div
-    class="flex-1 overflow-y-auto p-3 space-y-4"
+    class="flex-1 overflow-y-auto p-3 space-y-4 relative"
     bind:this={chatContainer}
     onscroll={handleScroll}
   >
+    <!-- Conversation List -->
+    <div
+      class="fixed top-32 left-0 right-0 z-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-3 mx-4"
+      class:hidden={!isConversationPanelVisible}
+    >
+      <div class="flex items-center justify-between mb-3">
+        <h4
+          class="text-xs font-medium text-gray-600 dark:text-zinc-400 uppercase tracking-wide"
+        >
+          Conversations
+        </h4>
+      </div>
+
+      <div class="space-y-1 max-h-32 overflow-y-auto">
+        {#each aiState.conversations as conversation}
+          <div class="flex items-center gap-2 pr-2">
+            <button
+              class="flex-1 text-left text-xs p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate min-w-0"
+              class:bg-blue-50={aiState.currentConversation?.id ===
+                conversation.id}
+              class:dark:bg-blue-950={aiState.currentConversation?.id ===
+                conversation.id}
+              class:text-blue-600={aiState.currentConversation?.id ===
+                conversation.id}
+              class:dark:text-blue-400={aiState.currentConversation?.id ===
+                conversation.id}
+              onclick={() => loadConversation(conversation.id)}
+              title={conversation.title}
+            >
+              <div class="flex items-center justify-between gap-2 min-w-0">
+                <div class="font-medium truncate flex-1">
+                  {conversation.title}
+                </div>
+                <div
+                  class="text-gray-500 dark:text-zinc-400 flex-shrink-0 text-right"
+                >
+                  {formatTimestamp(conversation.updatedAt)}
+                </div>
+              </div>
+            </button>
+            <button
+              class="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
+              onclick={() => {
+                if (
+                  confirm(
+                    "Are you sure you want to delete this conversation? This action cannot be undone."
+                  )
+                ) {
+                  deleteConversation(conversation.id);
+                }
+              }}
+              title="Delete Chat"
+              aria-label="Delete Current Chat"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-3 w-3"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        {/each}
+
+        {#if aiState.conversations.length === 0}
+          <div
+            class="text-xs text-gray-500 dark:text-zinc-400 text-center py-2"
+          >
+            No conversations yet
+          </div>
+        {/if}
+      </div>
+    </div>
+
     {#if aiState.currentConversation?.messages.length === 0 || !aiState.currentConversation}
       <div class="text-center text-gray-500 dark:text-zinc-400 py-8">
         <div class="text-2xl mb-2">💬</div>
@@ -427,73 +572,92 @@
                 {:else}
                   {#if message.role === "user"}
                     <div
-                      class="whitespace-pre-wrap break-words overflow-hidden {editingMessageId !== message.id ? 'pr-8' : ''}"
+                      class="whitespace-pre-wrap break-words overflow-hidden {editingMessageId !==
+                      message.id
+                        ? 'pr-8'
+                        : ''}"
                     >
                       {message.content}
                     </div>
-                  {:else}
-                    {#if message.thinking}
-                      <!-- Thinking bubble -->
-                      <div class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400">
-                        <div class="flex items-center space-x-1">
-                          <div
-                            class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          ></div>
-                          <div
-                            class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                            style="animation-delay: 0.1s"
-                          ></div>
-                          <div
-                            class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                            style="animation-delay: 0.2s"
-                          ></div>
-                        </div>
-                        <span class="text-sm">Thinking...</span>
+                  {:else if message.thinking}
+                    <!-- Thinking bubble -->
+                    <div
+                      class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400"
+                    >
+                      <div class="flex items-center space-x-1">
+                        <div
+                          class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                        ></div>
+                        <div
+                          class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          style="animation-delay: 0.1s"
+                        ></div>
+                        <div
+                          class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          style="animation-delay: 0.2s"
+                        ></div>
                       </div>
-                      {#if message.thinkingContent}
-                        <details class="mt-2 text-sm">
-                          <summary class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100">
-                            <span class="text-xs">💭 View thinking process</span>
-                          </summary>
-                          <div class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600">
-                            <div class="text-gray-700 dark:text-zinc-300 font-mono text-xs">
-                              {@html formatThinkingContent(message.thinkingContent)}
-                            </div>
+                      <span class="text-sm">Thinking...</span>
+                    </div>
+                    {#if message.thinkingContent}
+                      <details class="mt-2 text-sm">
+                        <summary
+                          class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100"
+                        >
+                          <span class="text-xs">💭 View thought process</span>
+                        </summary>
+                        <div
+                          class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600"
+                        >
+                          <div
+                            class="text-gray-700 dark:text-zinc-300 font-mono text-xs"
+                          >
+                            {@html formatThinkingContent(
+                              message.thinkingContent
+                            )}
                           </div>
-                        </details>
-                      {/if}
-                    {:else}
-                      <div
-                        class="prose prose-sm dark:prose-invert max-w-none"
-                        use:markdownAction={[message.content, message.id]}
-                      ></div>
-                      {#if message.thinkingContent}
-                        <details class="mt-2">
-                          <summary class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100">
-                            <span class="text-xs">💭 View thinking process</span>
-                          </summary>
-                          <div class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600">
-                            <div class="text-gray-700 dark:text-zinc-300 font-mono text-xs">
-                              {@html formatThinkingContent(message.thinkingContent)}
-                            </div>
-                          </div>
-                        </details>
-                      {/if}
-                      {#if aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id}
-                        <div class="flex items-center space-x-1 mt-2">
-                          <div
-                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          ></div>
-                          <div
-                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                            style="animation-delay: 0.1s"
-                          ></div>
-                          <div
-                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                            style="animation-delay: 0.2s"
-                          ></div>
                         </div>
-                      {/if}
+                      </details>
+                    {/if}
+                  {:else}
+                    <div
+                      class="prose prose-sm dark:prose-invert max-w-none"
+                      use:markdownAction={[message.content, message.id]}
+                    ></div>
+                    {#if message.thinkingContent}
+                      <details class="mt-2">
+                        <summary
+                          class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100"
+                        >
+                          <span class="text-xs">💭 View thought process</span>
+                        </summary>
+                        <div
+                          class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600"
+                        >
+                          <div
+                            class="text-gray-700 dark:text-zinc-300 font-mono text-xs"
+                          >
+                            {@html formatThinkingContent(
+                              message.thinkingContent
+                            )}
+                          </div>
+                        </div>
+                      </details>
+                    {/if}
+                    {#if aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id}
+                      <div class="flex items-center space-x-1 mt-2">
+                        <div
+                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                        ></div>
+                        <div
+                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          style="animation-delay: 0.1s"
+                        ></div>
+                        <div
+                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          style="animation-delay: 0.2s"
+                        ></div>
+                      </div>
                     {/if}
                   {/if}
                   {#if message.role === "user" && editingMessageId !== message.id}
@@ -549,7 +713,7 @@
                 ? 'text-right'
                 : 'text-left'}"
             >
-              {#if !(message.role === 'assistant' && aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id)}
+              {#if !(message.role === "assistant" && aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id)}
                 {formatMessageTime(message.timestamp)}
               {/if}
             </div>
@@ -560,15 +724,27 @@
 
     {#if aiState.isChatLoading}
       <!-- Show loading indicator when waiting for response to start -->
-      {#if !aiState.currentConversation?.messages.length || aiState.currentConversation.messages[aiState.currentConversation.messages.length - 1]?.role !== 'assistant'}
+      {#if !aiState.currentConversation?.messages.length || aiState.currentConversation.messages[aiState.currentConversation.messages.length - 1]?.role !== "assistant"}
         <div class="flex justify-start">
           <div class="w-[80%]">
-            <div class="px-3 py-2 rounded-lg text-sm bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100">
-              <div class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400">
+            <div
+              class="px-3 py-2 rounded-lg text-sm bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100"
+            >
+              <div
+                class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400"
+              >
                 <div class="flex items-center space-x-1">
-                  <div class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"></div>
-                  <div class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-                  <div class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                  <div
+                    class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                  ></div>
+                  <div
+                    class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                    style="animation-delay: 0.1s"
+                  ></div>
+                  <div
+                    class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                    style="animation-delay: 0.2s"
+                  ></div>
                 </div>
               </div>
             </div>
@@ -592,7 +768,7 @@
     <div class="mb-2">
       <ModelSelector />
     </div>
-    
+
     <div class="flex gap-2">
       <textarea
         bind:value={messageInput}
@@ -626,8 +802,7 @@
         <button
           onclick={sendMessage}
           disabled={!messageInput.trim() || !!editingMessageId}
-          class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded border bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all
-                 lg:px-3.5 lg:py-2 lg:text-sm lg:gap-1.5 xl:px-4 xl:py-2.5 xl:text-base xl:gap-2"
+          class="flex items-center gap-1.5 px-5 py-2 text-sm font-medium rounded border bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all"
           title="Send Message"
           aria-label="Send Message"
         >

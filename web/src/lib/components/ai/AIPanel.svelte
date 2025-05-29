@@ -4,24 +4,30 @@
   import QuickActions from "./QuickActions.svelte";
   import ChatInterface from "./ChatInterface.svelte";
   import AISettings from "./AISettings.svelte";
+  import { layoutStore } from "$lib/services/layout/layout.service";
 
-  export let onSuggestionAccept: (suggestion: string) => void = () => {};
-  export let isOpen = false;
-  export let context: string;
+  // Props
+  interface Props {
+    onSuggestionAccept: (suggestion: string) => void;
+    context: string;
+  }
+
+  let { onSuggestionAccept = () => {}, context }: Props = $props();
 
   // State
-  let selectedText = "";
-  let showSuggestionButton = false;
-  let buttonPosition = { x: 0, y: 0 };
-  let activeTab: "quick" | "chat" | "settings" = "quick";
+  let selectedText = $state("");
+  let showSuggestionButton = $state(false);
+  let buttonPosition = $state({ x: 0, y: 0 });
+  let activeTab = $state("quick");
 
   // Resize state
-  let isResizing = false;
-  let startX = 0;
-  let startWidth = 500; // Default width in pixels
-  let currentWidth = startWidth;
-  let minWidth = 280;
-  let maxWidth = 800;
+  const layoutState = $derived($layoutStore);
+  const maxWidth = $state(800); // Maximum width
+  let isResizing = $state(false);
+  let startX = $state(0);
+  let startWidth = $state(500); // Default width in pixels
+  let currentWidth = $state(400); // Default width
+  let minWidth = $state(400);
 
   function handleResizeStart(event: MouseEvent) {
     event.preventDefault(); // Prevent text selection
@@ -52,6 +58,18 @@
     document.body.style.userSelect = ""; // Restore text selection
   }
 
+  // Handle window resize
+  function handleWindowResize() {
+    const windowWidth = window.innerWidth;
+    if (layoutState.isMobile) {
+      currentWidth = windowWidth; // Full width on mobile
+    } else if (layoutState.isTablet) {
+      currentWidth = Math.min(windowWidth * 0.75, maxWidth);
+    } else {
+      currentWidth = Math.min(windowWidth * 0.5, maxWidth);
+    }
+  }
+
   onMount(() => {
     // Set up event listeners for text selection and context menu
     function setupEventListeners() {
@@ -59,10 +77,12 @@
       window.addEventListener("keyup", handleTextSelection);
       window.addEventListener("contextmenu", handleContextMenu);
       window.addEventListener("click", handleClickOutside);
+      window.addEventListener("resize", handleWindowResize);
     }
 
     // Initial setup
     setupEventListeners();
+    handleWindowResize(); // Set initial width based on window size
 
     return () => {
       // Clean up event listeners
@@ -70,6 +90,7 @@
       window.removeEventListener("keyup", handleTextSelection);
       window.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("click", handleClickOutside);
+      window.removeEventListener("resize", handleWindowResize);
       document.removeEventListener("mousemove", handleResizeMove);
       document.removeEventListener("mouseup", handleResizeEnd);
     };
@@ -114,7 +135,7 @@
       showSuggestionButton = true;
       // Switch to quick actions tab when context menu is used
       activeTab = "quick";
-      isOpen = true;
+      layoutStore.setAIPanelOpen(true);
     }
     // If no text is selected, let the native context menu show
   }
@@ -140,7 +161,7 @@
 <!-- Toggle Button -->
 <button
   class="fixed top-4 right-4 w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200/70 dark:hover:bg-zinc-700/70 text-gray-600 dark:text-gray-300 transition-colors backdrop-blur-sm"
-  on:click={() => (isOpen = !isOpen)}
+  onclick={() => layoutStore.toggleAIPanel()}
   title="AI Assistant"
   aria-label="AI Assistant"
 >
@@ -169,14 +190,17 @@
   class:transition-transform={!isResizing}
   class:duration-300={!isResizing}
   class:ease-in-out={!isResizing}
-  class:translate-x-0={isOpen}
-  class:translate-x-full={!isOpen}
-  style="width: {currentWidth}px;"
+  class:translate-x-0={layoutState.isAIPanelOpen}
+  class:translate-x-full={!layoutState.isAIPanelOpen}
+  class:z-40={layoutState.isSidebarOpen}
+  class:z-50={!layoutState.isSidebarOpen}
+  class:w-full={layoutState.isMobile}
+  style="width: {layoutState.isMobile ? '100%' : currentWidth}px;"
 >
   <!-- Resize Handle -->
   <div
     class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors select-none"
-    on:mousedown={handleResizeStart}
+    onmousedown={handleResizeStart}
     aria-label="Resize handle"
     role="button"
     tabindex="0"
@@ -192,7 +216,7 @@
       </h2>
       <button
         class="text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-        on:click={() => (isOpen = false)}
+        onclick={() => layoutStore.toggleAIPanel()}
         aria-label="Close"
       >
         <svg
@@ -220,7 +244,7 @@
         class:dark:text-blue-400={activeTab === "quick"}
         class:text-gray-600={activeTab !== "quick"}
         class:dark:text-zinc-400={activeTab !== "quick"}
-        on:click={() => (activeTab = "quick")}
+        onclick={() => (activeTab = "quick")}
       >
         Quick Actions
       </button>
@@ -232,7 +256,7 @@
         class:dark:text-blue-400={activeTab === "chat"}
         class:text-gray-600={activeTab !== "chat"}
         class:dark:text-zinc-400={activeTab !== "chat"}
-        on:click={() => (activeTab = "chat")}
+        onclick={() => (activeTab = "chat")}
       >
         Chat
       </button>
@@ -244,7 +268,7 @@
         class:dark:text-blue-400={activeTab === "settings"}
         class:text-gray-600={activeTab !== "settings"}
         class:dark:text-zinc-400={activeTab !== "settings"}
-        on:click={() => (activeTab = "settings")}
+        onclick={() => (activeTab = "settings")}
       >
         Settings
       </button>

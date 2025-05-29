@@ -66,14 +66,9 @@ func Chat(messages []Message, model string, useReasoning bool) *ssestream.Stream
 		MaxTokens: param.NewOpt(int64(4000)),
 	}
 
-	// Add reasoning effort for o1 models
-	if useReasoning && strings.Contains(strings.ToLower(selectedModel), "o1") {
-		params.ReasoningEffort = openai.ReasoningEffortMedium
-	}
-
-	// For other reasoning models (like DeepSeek), we would need to add include_reasoning
-	// This would require using a different client or modifying the request
-	// For now, we'll handle this in a future update when we support other providers
+	params.SetExtraFields(map[string]any{
+		"include_reasoning": param.NewOpt(useReasoning),
+	})
 
 	return client.Chat.Completions.NewStreaming(context.TODO(), params)
 }
@@ -143,14 +138,20 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 	messages := append(userPrompts, openai.SystemMessage(systemPrompt))
 
 	// Use streaming to get usage data with cost
-	stream := client.Chat.Completions.NewStreaming(context.TODO(), openai.ChatCompletionNewParams{
+	params := openai.ChatCompletionNewParams{
 		Messages:  messages,
 		Model:     os.Getenv("OPENAI_BASE_MODEL"),
 		MaxTokens: param.NewOpt(int64(4000)),
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
 		},
+	}
+
+	params.SetExtraFields(map[string]any{
+		"include_reasoning": param.NewOpt(false),
 	})
+
+	stream := client.Chat.Completions.NewStreaming(context.TODO(), params)
 
 	var suggestion strings.Builder
 	var usage *openai.CompletionUsage
@@ -161,10 +162,8 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
 			suggestion.WriteString(chunk.Choices[0].Delta.Content)
 		}
-		// Capture usage data when available (check if Usage field exists and is not zero value)
-		if chunk.Usage.PromptTokens > 0 || chunk.Usage.CompletionTokens > 0 {
-			usage = &chunk.Usage
-		}
+
+		usage = &chunk.Usage
 	}
 
 	if err := stream.Err(); err != nil {
@@ -213,6 +212,7 @@ func TextAssist(e *core.RequestEvent, req TextAssistRequest, userId string) (str
 		Title:           title,
 		TotalRequests:   "1",
 		Type:            req.Type,
+		Active:          true,
 		InputTokens:     strconv.FormatInt(inputTokens, 10),
 		OutputTokens:    strconv.FormatInt(outputTokens, 10),
 		ReasoningTokens: strconv.FormatInt(reasoningTokens, 10),
