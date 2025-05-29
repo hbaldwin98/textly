@@ -17,9 +17,16 @@
   let unsubscribe: (() => void) | null = null;
 
   let aiState = $derived($aiStore);
+  let hasInitialized = $state(false);
 
   onMount(async () => {
     await aiService.loadConversationsFromBackend();
+
+    // Load last conversation if exists and hasn't been loaded yet
+    if (aiState.lastConversationId && !hasInitialized) {
+      hasInitialized = true;
+      await aiService.loadConversation(aiState.lastConversationId);
+    }
 
     // Subscribe to conversation changes
     unsubscribe = ConversationService.getInstance().subscribeToConversations(
@@ -49,7 +56,6 @@
   function handleScroll() {
     if (!chatContainer) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainer;
-
     isUserNearBottom = scrollTop + clientHeight >= scrollHeight - 50;
     shouldAutoScroll = isUserNearBottom;
   }
@@ -57,57 +63,35 @@
   // Smooth scroll to bottom
   function scrollToBottom() {
     if (!chatContainer || !shouldAutoScroll) return;
-
-    // Add smooth scrolling behavior
-    chatContainer.style.scrollBehavior = "smooth";
-
-    // Use requestAnimationFrame for smoother animation
-    requestAnimationFrame(() => {
-      if (!shouldAutoScroll) return; // Check again before scrolling
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-    });
+    chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 
+  // Combined effect for handling scroll behavior
   $effect(() => {
-    if (chatContainer && aiState.currentConversation?.messages) {
-      const currentMessageCount = aiState.currentConversation.messages.length;
-      const currentContentLength = aiState.currentConversation.messages
-        .map((m) => m.content.length)
-        .reduce((a, b) => a + b, 0);
+    if (!chatContainer || !aiState.currentConversation) return;
 
-      // Check if content has changed
-      const hasNewContent =
-        currentMessageCount > previousMessageCount ||
-        currentContentLength > previousContentLength;
+    const currentMessageCount = aiState.currentConversation.messages.length;
+    const currentContentLength = aiState.currentConversation.messages
+      .map((m) => m.content.length)
+      .reduce((a, b) => a + b, 0);
 
-      if (hasNewContent && shouldAutoScroll) {
-        scrollToBottom();
-      }
+    const hasNewContent =
+      currentMessageCount > previousMessageCount ||
+      currentContentLength > previousContentLength;
 
-      previousMessageCount = currentMessageCount;
-      previousContentLength = currentContentLength;
-    }
-  });
+    const isNewConversation = currentConversationId !== aiState.currentConversation.id;
 
-  // Reset auto-scroll when conversation changes
-  $effect(() => {
-    if (aiState.currentConversation) {
-      if (currentConversationId !== aiState.currentConversation.id) {
-        shouldAutoScroll = true;
-      }
-
+    if (isNewConversation) {
+      shouldAutoScroll = true;
       currentConversationId = aiState.currentConversation.id;
-      if (chatContainer) {
-        // Add smooth scrolling behavior
-        chatContainer.style.scrollBehavior = "smooth";
-
-        // Use requestAnimationFrame for smoother animation
-        requestAnimationFrame(() => {
-          if (!shouldAutoScroll) return; // Check again before scrolling
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        });
-      }
     }
+
+    if ((hasNewContent || isNewConversation) && shouldAutoScroll) {
+      requestAnimationFrame(scrollToBottom);
+    }
+
+    previousMessageCount = currentMessageCount;
+    previousContentLength = currentContentLength;
   });
 
   $effect(() => {

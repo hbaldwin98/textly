@@ -31,9 +31,12 @@ export class DocumentService {
         if (!this.authService.user) return;
 
         try {
-            // Load all documents into cache
-            const documents = await this.getDocuments();
-            documents.forEach(doc => this.documentCache.set(doc.id, doc));
+            const records = await this.pb.collection('documents').getFullList<Document>({
+                filter: `user = "${this.authService.user.id}"`,
+                sort: '-updated',
+            });
+            
+            records.forEach(doc => this.documentCache.set(doc.id, doc));
 
             // Subscribe to realtime updates
             this.unsubscribeFromCache = this.subscribeToDocuments((data) => {
@@ -76,6 +79,7 @@ export class DocumentService {
                 .sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
         }
 
+        // Fallback to direct PocketBase query if cache is still empty
         try {
             const records = await this.pb.collection('documents').getFullList<Document>({
                 filter: `user = "${this.authService.user.id}"`,

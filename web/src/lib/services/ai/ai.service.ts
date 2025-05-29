@@ -43,6 +43,9 @@ interface AIState {
   descriptionConversations: Conversation[];
   isLoadingQuickActions: boolean;
   quickActionsError: string | null;
+  // UI state
+  lastConversationId: string | null;
+  lastAITab: string;
 }
 
 // Initialize store with default values
@@ -59,7 +62,9 @@ const defaultState: AIState = {
   synonymsConversations: [],
   descriptionConversations: [],
   isLoadingQuickActions: false,
-  quickActionsError: null
+  quickActionsError: null,
+  lastConversationId: typeof window !== 'undefined' ? localStorage.getItem('textly-last-conversation-id') : null,
+  lastAITab: typeof window !== 'undefined' ? localStorage.getItem('textly-last-ai-tab') || 'chat' : 'chat'
 };
 
 // Store for AI state
@@ -1010,6 +1015,12 @@ class AIService {
         conversations: conversations
       }));
 
+      // After loading conversations, check if we need to load the last conversation
+      const lastConversationId = typeof window !== 'undefined' ? localStorage.getItem('textly-last-conversation-id') : null;
+      if (lastConversationId) {
+        await this.loadConversation(lastConversationId);
+      }
+
     } catch (err) {
       console.error('Failed to load conversations:', err);
     }
@@ -1036,7 +1047,8 @@ class AIService {
         // We already have the messages, just set as current
         this.store.update(state => ({
           ...state,
-          currentConversation: existingConversation
+          currentConversation: existingConversation,
+          lastConversationId: conversationId
         }));
         return;
       }
@@ -1096,9 +1108,15 @@ class AIService {
         return {
           ...state,
           currentConversation: conversation,
-          conversations: updatedConversations
+          conversations: updatedConversations,
+          lastConversationId: conversationId
         };
       });
+
+      // Update localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('textly-last-conversation-id', conversationId);
+      }
 
     } catch (err) {
       console.error('Failed to load conversation:', err);
@@ -1252,7 +1270,9 @@ class AIService {
       synonymsConversations: [],
       descriptionConversations: [],
       isLoadingQuickActions: false,
-      quickActionsError: null
+      quickActionsError: null,
+      lastConversationId: null,
+      lastAITab: 'quick'
     });
   }
 
@@ -1301,6 +1321,27 @@ class AIService {
         chatError: 'Conversation stopped by user'
       }));
     }
+  }
+
+  // Add methods to update UI state
+  public setLastConversationId(id: string | null): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('textly-last-conversation-id', id || '');
+    }
+    this.store.update(state => ({
+      ...state,
+      lastConversationId: id
+    }));
+  }
+
+  public setLastAITab(tab: string): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('textly-last-ai-tab', tab);
+    }
+    this.store.update(state => ({
+      ...state,
+      lastAITab: tab
+    }));
   }
 
 }

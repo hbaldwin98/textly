@@ -458,6 +458,8 @@
     class="folder-tree-container max-h-64 overflow-y-auto relative p-1"
     ondragover={(e) => handleDragOver(e)}
     ondrop={(e) => handleDrop(e)}
+    role="tree"
+    tabindex="0"
   >
     {#if dragOverOutside}
       <div class="absolute inset-x-2 bottom-0 h-0.5 bg-blue-500"></div>
@@ -475,6 +477,12 @@
         ondrop={(e) => handleDrop(e, node.document)}
         onclick={() => handleDocumentSelect(node.document)}
         oncontextmenu={(e) => handleRightClick(e, node.document)}
+        onkeydown={() => handleDocumentSelect(node.document)}
+        tabindex="0"
+        role="treeitem"
+        aria-selected={currentDoc?.id === node.document.id}
+        aria-level={node.depth + 1}
+        aria-setsize={flattenedTree.length}
       >
         <!-- Drag indicators (only for non-folders) -->
         {#if dragOverItem?.id === node.document.id && !node.document.is_folder}
@@ -575,6 +583,7 @@
           class="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-all duration-200 p-1 rounded"
           onclick={(e) => handleDelete(e, node.document)}
           title="Delete {node.document.is_folder ? 'folder' : 'document'}"
+          aria-label="Delete {node.document.is_folder ? 'folder' : 'document'}"
         >
           <svg
             class="w-3 h-3"
@@ -647,10 +656,26 @@
       showCreateFolderModal = false;
       newFolderName = '';
     }}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') {
+        showCreateFolderModal = false;
+        newFolderName = '';
+      }
+    }}
+    aria-roledescription="Create folder modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="create-folder-modal-title"
+    tabindex="0"
+
   >
     <div 
       class="bg-white dark:bg-zinc-900 rounded-xl shadow-xl p-6 w-full max-w-md mx-auto transform transition-all"
       onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      aria-roledescription="Create folder modal content"
+      role="button"
+      tabindex="0"
     >
       <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">
         Create New Folder
@@ -698,10 +723,23 @@
       showRenameModal = false;
       renameName = '';
     }}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') {
+        showRenameModal = false;
+        renameName = '';
+      }
+    }}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="rename-modal-title"
+    tabindex="0"
   >
     <div 
       class="bg-white dark:bg-zinc-900 rounded-xl shadow-xl p-6 w-full max-w-md mx-auto transform transition-all"
       onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="button"
+      tabindex="0"
     >
       <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">
         Rename {contextMenuTarget?.is_folder ? 'Folder' : 'Document'}

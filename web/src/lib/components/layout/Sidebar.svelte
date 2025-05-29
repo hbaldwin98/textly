@@ -6,7 +6,7 @@
   import { DocumentCommandPalette } from "$lib/components/documents";
   import { currentDocument } from "$lib/stores/document.store";
   import { DocumentManagerService } from "$lib/services/documents";
-  import FolderTree from "$lib/components/FolderTree.svelte";
+  import FolderTree from "$lib/components/ui/FolderTree.svelte";
   import type { Document } from "$lib/services/documents/document.service";
   import { layoutStore, BREAKPOINTS } from "$lib/services/layout/layout.service";
 

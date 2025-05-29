@@ -5,6 +5,7 @@
   import ChatInterface from "./ChatInterface.svelte";
   import AISettings from "./AISettings.svelte";
   import { layoutStore } from "$lib/services/layout/layout.service";
+  import { aiService, aiStore } from "$lib/services/ai";
 
   // Props
   interface Props {
@@ -18,16 +19,22 @@
   let selectedText = $state("");
   let showSuggestionButton = $state(false);
   let buttonPosition = $state({ x: 0, y: 0 });
-  let activeTab = $state("quick");
+  let activeTab = $state($aiStore.lastAITab);
 
   // Resize state
   const layoutState = $derived($layoutStore);
+  const aiState = $derived($aiStore);
   const maxWidth = $state(1200); // Maximum width
   let isResizing = $state(false);
   let startX = $state(0);
   let startWidth = $state(500); // Default width in pixels
   let currentWidth = $state(400); // Default width
   let minWidth = $state(400);
+
+  // Update active tab in store when it changes
+  $effect(() => {
+    aiService.setLastAITab(activeTab);
+  });
 
   function handleResizeStart(event: MouseEvent) {
     event.preventDefault(); // Prevent text selection
