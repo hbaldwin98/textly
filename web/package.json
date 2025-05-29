@@ -39,7 +39,10 @@
 		"@milkdown/preset-gfm": "^7.11.1",
 		"@milkdown/theme-nord": "^7.11.1",
 		"codemirror": "^6.0.1",
+		"highlight.js": "^11.11.1",
 		"marked": "^15.0.12",
+		"marked-gfm-heading-id": "^4.1.1",
+		"marked-highlight": "^2.2.1",
 		"openai": "^4.103.0",
 		"pocketbase": "^0.26.0"
 	}

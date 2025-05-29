@@ -1,10 +1,13 @@
 <script lang="ts">
   import { aiService, aiStore, type ChatMessage } from "$lib/services/ai";
   import { onMount, onDestroy } from "svelte";
-  import { marked } from "marked";
+  import { Marked } from "marked";
   import ModelSelector from "./ModelSelector.svelte";
   import ConversationService from "$lib/services/ai/conversation.service";
   import { layoutStore } from "$lib/services/layout/layout.service";
+  import { markedHighlight } from "marked-highlight";
+  import hljs from "highlight.js";
+  import "highlight.js/styles/github-dark.css";
 
   // State
   let messageInput = $state("");
@@ -24,14 +27,16 @@
   // Load conversations on mount
   onMount(async () => {
     await aiService.loadConversationsFromBackend();
-    
+
     // Subscribe to conversation changes
-    unsubscribe = ConversationService.getInstance().subscribeToConversations((updatedConversation) => {
-      // Only update if it's not the current conversation
-      if (updatedConversation.id !== aiState.currentConversation?.id) {
-        aiService.updateConversationInList(updatedConversation);
+    unsubscribe = ConversationService.getInstance().subscribeToConversations(
+      (updatedConversation) => {
+        // Only update if it's not the current conversation
+        if (updatedConversation.id !== aiState.currentConversation?.id) {
+          aiService.updateConversationInList(updatedConversation);
+        }
       }
-    });
+    );
   });
 
   onDestroy(() => {
@@ -40,11 +45,17 @@
     }
   });
 
-  marked.setOptions({
-    breaks: true,
-    gfm: true,
-    async: true,
-  });
+  const marked = new Marked(
+    markedHighlight({
+      async: true,
+      emptyLangClass: "hljs",
+      langPrefix: "hljs language-",
+      highlight(code, lang, _) {
+        const language = hljs.getLanguage(lang) ? lang : "plaintext";
+        return hljs.highlight(code, { language }).value;
+      },
+    })
+  );
 
   function renderMarkdown(
     node: HTMLElement,
@@ -74,7 +85,6 @@
       return;
     }
 
-    // Render markdown asynchronously
     const parseResult = marked.parse(content);
     if (parseResult instanceof Promise) {
       parseResult
@@ -87,13 +97,11 @@
           node.innerHTML = content.replace(/\n/g, "<br>");
         });
     } else {
-      // If marked returns a string directly (synchronous mode)
       renderedContents.set(messageId, parseResult);
       node.innerHTML = parseResult;
     }
   }
 
-  // Function to convert thinking content newlines to HTML breaks
   function formatThinkingContent(content: string): string {
     if (!content?.trim()?.length) return content;
 
@@ -282,11 +290,13 @@
     if (!target.closest(".message-menu") && !target.closest(".menu-button")) {
       activeMenuMessageId = null;
     }
-    
+
     // Close conversation panel when clicking outside
-    if (isConversationPanelVisible && 
-        !target.closest(".conversation-panel") && 
-        !target.closest(".panel-toggle")) {
+    if (
+      isConversationPanelVisible &&
+      !target.closest(".conversation-panel") &&
+      !target.closest(".panel-toggle")
+    ) {
       isConversationPanelVisible = false;
     }
   }
@@ -445,7 +455,9 @@
           {/each}
 
           {#if aiState.conversations.length === 0}
-            <div class="text-xs text-gray-500 dark:text-zinc-400 text-center py-2">
+            <div
+              class="text-xs text-gray-500 dark:text-zinc-400 text-center py-2"
+            >
               No conversations yet
             </div>
           {/if}
@@ -508,7 +520,8 @@
                         <button
                           class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
                           onclick={sendMessage}
-                          disabled={!messageInput.trim() || aiState.isChatLoading}
+                          disabled={!messageInput.trim() ||
+                            aiState.isChatLoading}
                           title="Apply changes and resubmit"
                         >
                           Apply
@@ -791,6 +804,160 @@
   /* Prevent text selection when right-clicking */
   :global(.user-message) {
     user-select: none;
+  }
+
+  /* Code block styling */
+  :global(.prose pre) {
+    background-color: #f0f2f5;
+    border-radius: 6px;
+    padding: 16px;
+    margin: 1em 0;
+    overflow-x: auto;
+    border: none !important;
+    outline: none !important;
+  }
+
+  :global(.dark .prose pre) {
+    background-color: #1a1b26;
+  }
+
+  :global(.prose code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.875em;
+  }
+
+  :global(.prose pre code) {
+    background: none !important;
+    padding: 0;
+    border-radius: 0;
+    font-size: 0.875em;
+    color: #1a1f36;
+    border: none !important;
+    outline: none !important;
+  }
+
+  :global(.dark .prose pre code) {
+    color: #f8f8f2;
+  }
+
+  :global(.prose p code) {
+    background-color: #f0f2f5;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.875em;
+    color: #1a1f36;
+    border: none !important;
+    outline: none !important;
+  }
+
+  :global(.dark .prose p code) {
+    background-color: #1a1b26;
+    color: #f8f8f2;
+  }
+
+  /* Override highlight.js theme styles */
+  :global(.hljs) {
+    background: none !important;
+    border: none !important;
+    outline: none !important;
+  }
+
+  /* Custom syntax highlighting colors for light mode */
+  :global(.hljs-string) {
+    color: #0550ae !important;
+  }
+
+  :global(.hljs-comment) {
+    color: #6a737d !important;
+  }
+
+  :global(.hljs-keyword) {
+    color: #d73a49 !important;
+  }
+
+  :global(.hljs-function) {
+    color: #6f42c1 !important;
+  }
+
+  :global(.hljs-number) {
+    color: #005cc5 !important;
+  }
+
+  :global(.hljs-attr) {
+    color: #005cc5 !important;
+  }
+
+  :global(.hljs-title) {
+    color: #6f42c1 !important;
+  }
+
+  :global(.hljs-params) {
+    color: #24292e !important;
+  }
+
+  :global(.hljs-variable) {
+    color: #e36209 !important;
+  }
+
+  :global(.hljs-property) {
+    color: #005cc5 !important;
+  }
+
+  :global(.hljs-attribute) {
+    color: #005cc5 !important;
+  }
+
+  :global(.hljs-built_in) {
+    color: #6f42c1 !important;
+  }
+
+  /* Dark mode syntax highlighting colors */
+  :global(.dark .hljs-string) {
+    color: #a5d6ff !important;
+  }
+
+  :global(.dark .hljs-comment) {
+    color: #6b7280 !important;
+  }
+
+  :global(.dark .hljs-keyword) {
+    color: #ff7b72 !important;
+  }
+
+  :global(.dark .hljs-function) {
+    color: #d2a8ff !important;
+  }
+
+  :global(.dark .hljs-number) {
+    color: #79c0ff !important;
+  }
+
+  :global(.dark .hljs-attr) {
+    color: #79c0ff !important;
+  }
+
+  :global(.dark .hljs-title) {
+    color: #d2a8ff !important;
+  }
+
+  :global(.dark .hljs-params) {
+    color: #c9d1d9 !important;
+  }
+
+  :global(.dark .hljs-variable) {
+    color: #ffa657 !important;
+  }
+
+  :global(.dark .hljs-property) {
+    color: #79c0ff !important;
+  }
+
+  :global(.dark .hljs-attribute) {
+    color: #79c0ff !important;
+  }
+
+  :global(.dark .hljs-built_in) {
+    color: #d2a8ff !important;
   }
 
   /* Remove transitions that might cause issues */
