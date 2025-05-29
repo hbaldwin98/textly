@@ -25,7 +25,6 @@ export class DocumentService {
     private constructor() {
         this.pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080');
         this.authService = AuthorizationService.getInstance();
-        this.initializeCache();
     }
 
     private async initializeCache() {
@@ -65,6 +64,11 @@ export class DocumentService {
             throw new Error('User not authenticated');
         }
 
+        // Initialize cache if empty
+        if (this.documentCache.size === 0) {
+            await this.initializeCache();
+        }
+
         // If we have a populated cache, use it
         if (this.documentCache.size > 0) {
             return Array.from(this.documentCache.values())
@@ -96,6 +100,11 @@ export class DocumentService {
     public async getDocumentTitles(): Promise<Pick<Document, 'id' | 'title' | 'user' | 'created' | 'updated' | 'is_folder'>[]> {
         if (!this.authService.user) {
             throw new Error('User not authenticated');
+        }
+
+        // Initialize cache if empty
+        if (this.documentCache.size === 0) {
+            await this.initializeCache();
         }
 
         // If we have a populated cache, use it
