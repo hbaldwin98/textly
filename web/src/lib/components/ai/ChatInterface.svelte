@@ -43,6 +43,7 @@
   let previousContentLength = 0;
   let isUserNearBottom = true;
   let shouldAutoScroll = true;
+  let currentConversationId = $state<string | null>(null);
 
   // Track if user is near bottom when they scroll manually
   function handleScroll() {
@@ -91,6 +92,11 @@
   // Reset auto-scroll when conversation changes
   $effect(() => {
     if (aiState.currentConversation) {
+      if (currentConversationId !== aiState.currentConversation.id) {
+        shouldAutoScroll = true;
+      }
+
+      currentConversationId = aiState.currentConversation.id;
       if (chatContainer) {
         // Add smooth scrolling behavior
         chatContainer.style.scrollBehavior = "smooth";
