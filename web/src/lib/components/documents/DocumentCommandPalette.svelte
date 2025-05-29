@@ -34,7 +34,7 @@
   // Filtered documents based on search (only title)
   let filteredDocuments = $derived(
     documentList.filter((doc) =>
-      doc.title.toLowerCase().includes(searchTerm.toLowerCase())
+      !doc.is_folder && doc.title.toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
 

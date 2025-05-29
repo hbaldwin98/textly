@@ -56,7 +56,7 @@ export class DocumentService {
     /**
      * Get all documents with minimal data (titles and metadata only) for performance
      */
-    public async getDocumentTitles(): Promise<Pick<Document, 'id' | 'title' | 'user' | 'created' | 'updated'>[]> {
+    public async getDocumentTitles(): Promise<Pick<Document, 'id' | 'title' | 'user' | 'created' | 'updated' | 'is_folder'>[]> {
         if (!this.authService.user) {
             throw new Error('User not authenticated');
         }
@@ -64,7 +64,7 @@ export class DocumentService {
         const records = await this.pb.collection('documents').getFullList<Document>({
             filter: `user = "${this.authService.user.id}"`,
             sort: '-updated',
-            fields: 'id,title,user,created,updated',
+            fields: 'id,title,user,created,updated,is_folder',
         });
 
         return records;
