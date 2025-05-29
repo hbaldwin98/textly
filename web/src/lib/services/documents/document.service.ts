@@ -19,10 +19,34 @@ export class DocumentService {
     private readonly pb: PocketBase;
     private readonly pbService = PocketBaseService.getInstance();
     private authService: AuthorizationService;
+    private documentCache: Map<string, Document> = new Map();
+    private unsubscribeFromCache: (() => void) | null = null;
 
     private constructor() {
         this.pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080');
         this.authService = AuthorizationService.getInstance();
+        this.initializeCache();
+    }
+
+    private async initializeCache() {
+        if (!this.authService.user) return;
+
+        try {
+            // Load all documents into cache
+            const documents = await this.getDocuments();
+            documents.forEach(doc => this.documentCache.set(doc.id, doc));
+
+            // Subscribe to realtime updates
+            this.unsubscribeFromCache = this.subscribeToDocuments((data) => {
+                if (data.action === 'create' || data.action === 'update') {
+                    this.documentCache.set(data.record.id, data.record);
+                } else if (data.action === 'delete') {
+                    this.documentCache.delete(data.record.id);
+                }
+            });
+        } catch (error) {
+            console.error('Failed to initialize document cache:', error);
+        }
     }
 
     public static getInstance(): DocumentService {
@@ -41,6 +65,13 @@ export class DocumentService {
             throw new Error('User not authenticated');
         }
 
+        // If we have a populated cache, use it
+        if (this.documentCache.size > 0) {
+            return Array.from(this.documentCache.values())
+                .filter(doc => doc.user === this.authService.user?.id)
+                .sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
+        }
+
         try {
             const records = await this.pb.collection('documents').getFullList<Document>({
                 filter: `user = "${this.authService.user.id}"`,
@@ -48,6 +79,12 @@ export class DocumentService {
             });
             return records;
         } catch (error) {
+            // If it's an auto-cancellation error, return cached documents or empty array
+            if (error instanceof Error && error.message.includes('autocancelled')) {
+                return Array.from(this.documentCache.values())
+                    .filter(doc => doc.user === this.authService.user?.id)
+                    .sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
+            }
             console.error('DocumentService: Error fetching documents:', error);
             throw error;
         }
@@ -61,27 +98,73 @@ export class DocumentService {
             throw new Error('User not authenticated');
         }
 
-        const records = await this.pb.collection('documents').getFullList<Document>({
-            filter: `user = "${this.authService.user.id}"`,
-            sort: '-updated',
-            fields: 'id,title,user,created,updated,is_folder',
-        });
+        // If we have a populated cache, use it
+        if (this.documentCache.size > 0) {
+            return Array.from(this.documentCache.values())
+                .filter(doc => doc.user === this.authService.user?.id)
+                .map(doc => ({
+                    id: doc.id,
+                    title: doc.title,
+                    user: doc.user,
+                    created: doc.created,
+                    updated: doc.updated,
+                    is_folder: doc.is_folder
+                }))
+                .sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
+        }
 
-        return records;
+        try {
+            const records = await this.pb.collection('documents').getFullList<Document>({
+                filter: `user = "${this.authService.user.id}"`,
+                sort: '-updated',
+                fields: 'id,title,user,created,updated,is_folder',
+            });
+            return records;
+        } catch (error) {
+            // If it's an auto-cancellation error, return cached documents or empty array
+            if (error instanceof Error && error.message.includes('autocancelled')) {
+                return Array.from(this.documentCache.values())
+                    .filter(doc => doc.user === this.authService.user?.id)
+                    .map(doc => ({
+                        id: doc.id,
+                        title: doc.title,
+                        user: doc.user,
+                        created: doc.created,
+                        updated: doc.updated,
+                        is_folder: doc.is_folder
+                    }))
+                    .sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
+            }
+            throw error;
+        }
     }
 
     /**
      * Get a specific document by ID
      */
-    public async getDocument(id: string): Promise<Document> {
-        const record = await this.pb.collection('documents').getOne<Document>(id);
+    public async getDocument(id: string): Promise<Document | null> {
+        // Check cache first
+        const cachedDoc = this.documentCache.get(id);
+        if (cachedDoc) return cachedDoc;
 
-        // Verify the document belongs to the current user
-        if (record.user !== this.authService.user?.id) {
-            throw new Error('Access denied');
+        try {
+            const record = await this.pb.collection('documents').getOne<Document>(id);
+
+            // Verify the document belongs to the current user
+            if (record.user !== this.authService.user?.id) {
+                throw new Error('Access denied');
+            }
+
+            // Update cache
+            this.documentCache.set(id, record);
+            return record;
+        } catch (error) {
+            // If it's an auto-cancellation error, return null instead of throwing
+            if (error instanceof Error && error.message.includes('autocancelled')) {
+                return null;
+            }
+            throw error;
         }
-
-        return record;
     }
 
     /**
@@ -154,10 +237,13 @@ export class DocumentService {
         const path: Document[] = [];
         let currentDoc = await this.getDocument(documentId);
         
+        if (!currentDoc) return path;
+        
         path.unshift(currentDoc);
         
         while (currentDoc.parent) {
             currentDoc = await this.getDocument(currentDoc.parent);
+            if (!currentDoc) break;
             path.unshift(currentDoc);
         }
         
@@ -219,5 +305,23 @@ export class DocumentService {
         return this.pbService.subscribeWithRetry('documents', callback, {
             filter: `id = "${documentId}"`
         });
+    }
+
+    /**
+     * Clear the document cache
+     */
+    public clearCache(): void {
+        this.documentCache.clear();
+        if (this.unsubscribeFromCache) {
+            this.unsubscribeFromCache();
+            this.unsubscribeFromCache = null;
+        }
+    }
+
+    /**
+     * Cleanup when service is destroyed
+     */
+    public destroy(): void {
+        this.clearCache();
     }
 } 

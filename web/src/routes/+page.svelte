@@ -188,17 +188,19 @@
   <div class="flex h-full relative">
     <!-- Main Content -->
     <div
-      class="flex-1 transition-all duration-300 relative z-10"
-      class:mr-80={layoutState.isAIAssistantOpen}
+      class="flex-1 transition-all duration-300 relative"
+      class:z-10={!layoutState.isAIAssistantOpen}
     >
-      <Sidebar
-        {viewMode}
-        {isSpellcheckEnabled}
-        onViewModeChange={handleViewModeChange}
-        onSpellcheckToggle={handleSpellcheckToggle}
-        currentWidth={contentWidth}
-        onWidthChange={handleContentWidthChange}
-      />
+      <div class:hidden={layoutState.isFullscreen && layoutState.isAIAssistantOpen}>
+        <Sidebar
+          {viewMode}
+          {isSpellcheckEnabled}
+          onViewModeChange={handleViewModeChange}
+          onSpellcheckToggle={handleSpellcheckToggle}
+          currentWidth={contentWidth}
+          onWidthChange={handleContentWidthChange}
+        />
+      </div>
 
       <div class="h-full overflow-hidden">
         {#if viewMode === "editor"}

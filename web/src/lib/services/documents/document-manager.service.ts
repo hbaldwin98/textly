@@ -77,9 +77,13 @@ export class DocumentManagerService {
             // Clear any pending saves on the previous document
             this.clearCurrentDocument();
 
+            // Get document from cache first
             const document = await this.documentService.getDocument(documentId);
-            this.currentDocumentId = documentId;
+            if (!document) {
+                throw new Error('Document not found');
+            }
 
+            this.currentDocumentId = documentId;
             documentActions.setCurrentDocument(document);
             this.debouncedSave = this.createDebouncedSave();
             this.subscribeToCurrentDocument();

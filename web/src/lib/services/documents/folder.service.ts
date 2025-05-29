@@ -84,11 +84,30 @@ export class FolderService {
     }
 
     /**
-     * Get breadcrumb path for navigation
+     * Get the breadcrumb path for a folder
      */
-    public async getBreadcrumbs(documentId?: string | null): Promise<Document[]> {
-        if (!documentId) return [];
-        return await this.documentService.getDocumentPath(documentId);
+    public async getBreadcrumbs(folderId: string | null): Promise<Document[]> {
+        if (!folderId) return [];
+        
+        try {
+            const path: Document[] = [];
+            let currentId = folderId;
+            
+            // Fetch up to 10 levels deep to prevent infinite loops
+            for (let i = 0; i < 10; i++) {
+                const doc = await this.documentService.getDocument(currentId);
+                if (!doc) break;
+                
+                path.unshift(doc);
+                if (!doc.parent) break;
+                currentId = doc.parent;
+            }
+            
+            return path;
+        } catch (error) {
+            console.warn('Error getting breadcrumbs:', error);
+            return [];
+        }
     }
 
     /**

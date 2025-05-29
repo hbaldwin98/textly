@@ -57,12 +57,14 @@
 
   // Function to expand parent folders of a document
   async function expandParentFolders(doc: Document) {
+    if (!doc.parent) return; // No parent to expand
+    
     try {
       const path = await folderService.getBreadcrumbs(doc.parent);
       const folderIds = path.map(d => d.id);
       expandedFolders = [...new Set([...expandedFolders, ...folderIds])];
-    } catch (err) {
-      console.error("Failed to expand parent folders:", err);
+    } catch {
+      // Silently ignore errors since this is non-critical functionality
     }
   }
 

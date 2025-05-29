@@ -66,7 +66,7 @@ func GetConversationsByUserId(e *core.RequestEvent, userId string, includeMessag
 	query := e.App.DB().Select("id", "user", "title", "type", "total_requests", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "created", "updated").
 		From("conversations").
 		Where(dbx.HashExp{"user": userId}).
-		OrderBy("created DESC")
+		OrderBy("updated DESC")
 
 	var conversations []*Conversation
 	if err := query.All(&conversations); err != nil {
@@ -92,7 +92,7 @@ func GetConversationsByUserIdAndType(e *core.RequestEvent, userId string, conver
 	query := e.App.DB().Select("id", "user", "title", "type", "total_requests", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "created", "updated").
 		From("conversations").
 		Where(dbx.HashExp{"user": userId, "type": conversationType}).
-		OrderBy("created DESC")
+		OrderBy("updated DESC")
 
 	var conversations []*Conversation
 	if err := query.All(&conversations); err != nil {
@@ -312,7 +312,7 @@ func GetActiveConversationsByUserId(e *core.RequestEvent, userId string, include
 	query := e.App.DB().Select("id", "user", "title", "type", "total_requests", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "active", "created", "updated").
 		From("conversations").
 		Where(dbx.HashExp{"user": userId, "active": true}).
-		OrderBy("created DESC")
+		OrderBy("updated DESC")
 
 	var conversations []*Conversation
 	if err := query.All(&conversations); err != nil {
@@ -338,7 +338,7 @@ func GetActiveConversationsByUserIdAndType(e *core.RequestEvent, userId string, 
 	query := e.App.DB().Select("id", "user", "title", "type", "total_requests", "input_tokens", "output_tokens", "reasoning_tokens", "cost", "active", "created", "updated").
 		From("conversations").
 		Where(dbx.HashExp{"user": userId, "type": conversationType, "active": true}).
-		OrderBy("created DESC")
+		OrderBy("updated DESC")
 
 	var conversations []*Conversation
 	if err := query.All(&conversations); err != nil {

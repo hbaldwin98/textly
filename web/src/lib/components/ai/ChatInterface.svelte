@@ -245,7 +245,8 @@
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffHours < 48) return "1 day ago";
+    if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString();
   }
 
@@ -451,42 +452,6 @@
       bind:this={chatContainer}
       onscroll={handleScroll}
     >
-      <!-- Conversation Panel Toggle -->
-      <div class="absolute top-3 left-3 z-10">
-        <button
-          class="px-3 py-1.5 text-sm text-gray-600 dark:text-zinc-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-md transition-colors flex items-center gap-2 shadow-sm border border-gray-200 dark:border-zinc-700"
-          onclick={() =>
-            (isConversationPanelVisible = !isConversationPanelVisible)}
-          title={isConversationPanelVisible
-            ? "Hide Previous Conversations"
-            : "Show Previous Conversations"}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            {#if isConversationPanelVisible}
-              <path
-                fill-rule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clip-rule="evenodd"
-              />
-            {:else}
-              <path
-                fill-rule="evenodd"
-                d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
-                clip-rule="evenodd"
-              />
-            {/if}
-          </svg>
-          {isConversationPanelVisible
-            ? "Hide Previous Conversations"
-            : "Show Previous Conversations"}
-        </button>
-      </div>
-
       {#if aiState.currentConversation?.messages.length === 0 || !aiState.currentConversation}
         <div class="text-center text-gray-500 dark:text-zinc-400 py-8">
           <div class="text-2xl mb-2">💬</div>

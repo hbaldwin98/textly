@@ -22,7 +22,7 @@
 
   // Resize state
   const layoutState = $derived($layoutStore);
-  const maxWidth = $state(800); // Maximum width
+  const maxWidth = $state(1200); // Maximum width
   let isResizing = $state(false);
   let startX = $state(0);
   let startWidth = $state(500); // Default width in pixels
@@ -174,6 +174,7 @@
 <!-- Toggle Button -->
 <button
   class="fixed top-4 right-4 w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200/70 dark:hover:bg-zinc-700/70 text-gray-600 dark:text-gray-300 transition-colors backdrop-blur-sm"
+  class:hidden={layoutState.isFullscreen}
   onclick={() => layoutStore.toggleAIAssistant()}
   title="AI Assistant"
   aria-label="AI Assistant"
@@ -226,7 +227,7 @@
     <!-- Header with tabs -->
     <div
       class="flex items-center justify-between mb-4 border-b border-gray-200 dark:border-zinc-800 pb-4"
-      class:max-w-3xl={layoutState.isFullscreen}
+      class:max-w-5xl={layoutState.isFullscreen}
       class:mx-auto={layoutState.isFullscreen}
       class:w-full={layoutState.isFullscreen}
     >
@@ -284,7 +285,7 @@
     <!-- Tab Navigation -->
     <div 
       class="flex mb-4 bg-white dark:bg-zinc-900 rounded-lg p-1"
-      class:max-w-3xl={layoutState.isFullscreen}
+      class:max-w-5xl={layoutState.isFullscreen}
       class:mx-auto={layoutState.isFullscreen}
       class:w-full={layoutState.isFullscreen}
     >
@@ -329,17 +330,17 @@
     <!-- Tab Content -->
     <div class="flex-1 min-h-0">
       <div class="h-full" class:hidden={activeTab !== "quick"}>
-        <div class="h-full" class:max-w-3xl={layoutState.isFullscreen} class:mx-auto={layoutState.isFullscreen} class:w-full={layoutState.isFullscreen}>
+        <div class="h-full" class:max-w-5xl={layoutState.isFullscreen} class:mx-auto={layoutState.isFullscreen} class:w-full={layoutState.isFullscreen}>
           <QuickActions {onSuggestionAccept} />
         </div>
       </div>
       <div class="h-full" class:hidden={activeTab !== "chat"}>
-        <div class="h-full" class:max-w-3xl={layoutState.isFullscreen} class:mx-auto={layoutState.isFullscreen} class:w-full={layoutState.isFullscreen}>
+        <div class="h-full" class:max-w-5xl={layoutState.isFullscreen} class:mx-auto={layoutState.isFullscreen} class:w-full={layoutState.isFullscreen}>
           <ChatInterface />
         </div>
       </div>
       <div class="h-full" class:hidden={activeTab !== "settings"}>
-        <div class="h-full" class:max-w-3xl={layoutState.isFullscreen} class:mx-auto={layoutState.isFullscreen} class:w-full={layoutState.isFullscreen}>
+        <div class="h-full" class:max-w-5xl={layoutState.isFullscreen} class:mx-auto={layoutState.isFullscreen} class:w-full={layoutState.isFullscreen}>
           <AISettings />
         </div>
       </div>
