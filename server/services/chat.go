@@ -14,6 +14,7 @@ import (
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/packages/param"
 	"github.com/openai/openai-go/packages/ssestream"
+	"github.com/openai/openai-go/shared"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -66,8 +67,9 @@ func Chat(messages []Message, model string, useReasoning bool) *ssestream.Stream
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
 		},
-		Model:     selectedModel,
-		MaxTokens: param.NewOpt(int64(4000)),
+		Model:           selectedModel,
+		MaxTokens:       param.NewOpt(int64(8000)),
+		ReasoningEffort: shared.ReasoningEffortHigh,
 	}
 
 	params.SetExtraFields(map[string]any{

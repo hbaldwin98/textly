@@ -253,6 +253,24 @@ func SeedDefaultModels(e *core.ServeEvent) error {
 			Default:      true,
 		},
 		{
+			Identifier:   "perplexity/sonar-reasoning",
+			Name:         "Perplexity Sonar Reasoning",
+			Description:  "Perplexity's reasoning model powered by DeepSeek R1",
+			Icon:         "🔍",
+			Capabilities: `["reasoning", "internet"]`,
+			Provider:     "Perplexity",
+			Default:      false,
+		},
+		{
+			Identifier:   "perplexity/sonar-reasoning-pro",
+			Name:         "Perplexity Sonar Reasoning Pro",
+			Description:  "Perplexity's advanced reasoning model powered by DeepSeek R1",
+			Icon:         "🔍",
+			Capabilities: `["reasoning", "internet"]`,
+			Provider:     "Perplexity",
+			Default:      false,
+		},
+		{
 			Identifier:   "perplexity/sonar",
 			Name:         "Perplexity Sonar",
 			Description:  "Perplexity's affordable Q&A model",
@@ -291,7 +309,6 @@ func SeedDefaultModels(e *core.ServeEvent) error {
 	}
 
 	modelsToCreate := []*AIModel{}
-	// remove from the list the models that already exist
 	for _, model := range defaultModels {
 		databaseModel, err := getAIModelByIdentifier(e, model.Identifier)
 		if err != nil || databaseModel == nil {
