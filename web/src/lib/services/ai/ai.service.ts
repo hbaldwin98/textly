@@ -1258,10 +1258,35 @@ class AIService {
   }
 
   public clearQuickActionsError(): void {
-    this.store.update(state => ({
-      ...state,
-      quickActionsError: null
-    }));
+    this.store.update(state => ({ ...state, quickActionsError: null }));
+  }
+
+  public updateConversationInList(updatedConversation: Conversation): void {
+    this.store.update(state => {
+      const conversations = [...state.conversations];
+      const index = conversations.findIndex(c => c.id === updatedConversation.id);
+      
+      if (index !== -1) {
+        // Convert the Conversation type to ChatConversation type
+        const chatConversation: ChatConversation = {
+          id: updatedConversation.id,
+          title: updatedConversation.title,
+          messages: updatedConversation.messages.map(m => ({
+            id: m.id,
+            role: m.user_message ? 'user' : 'assistant',
+            content: m.user_message || m.response_message,
+            timestamp: new Date(m.created).getTime(),
+            thinkingContent: m.thinking_content
+          })),
+          createdAt: new Date(updatedConversation.created).getTime(),
+          updatedAt: new Date(updatedConversation.updated).getTime()
+        };
+        
+        conversations[index] = chatConversation;
+      }
+      
+      return { ...state, conversations };
+    });
   }
 
   // Method to stop the current conversation

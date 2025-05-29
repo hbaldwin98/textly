@@ -1,4 +1,5 @@
 import { AuthorizationService } from '../authorization/authorization.service';
+import { PocketBaseService } from '../pocketbase.service';
 
 export interface ConversationMessage {
   id: string;
@@ -59,11 +60,11 @@ export interface EditMessageRequest {
 
 class ConversationService {
   private static instance: ConversationService;
-  private baseUrl: string;
+  private readonly pb = PocketBaseService.getInstance().client;
+  private readonly pbService = PocketBaseService.getInstance();
+  private authService = AuthorizationService.getInstance();
 
-  private constructor() {
-    this.baseUrl = import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080';
-  }
+  private constructor() {}
 
   public static getInstance(): ConversationService {
     if (!ConversationService.instance) {
@@ -73,15 +74,14 @@ class ConversationService {
   }
 
   private getAuthHeaders(): HeadersInit {
-    const token = AuthorizationService.getInstance().token;
     return {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Bearer ${this.pb.authStore.token}`
     };
   }
 
   public async createConversation(request: CreateConversationRequest): Promise<CreateConversationResponse> {
-    const response = await fetch(`${this.baseUrl}/conversations/create`, {
+    const response = await fetch(`${this.pb.baseUrl}/conversations/create`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(request)
@@ -96,7 +96,7 @@ class ConversationService {
   }
 
   public async addMessage(request: AddMessageRequest): Promise<AddMessageResponse> {
-    const response = await fetch(`${this.baseUrl}/conversations/message`, {
+    const response = await fetch(`${this.pb.baseUrl}/conversations/message`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(request)
@@ -111,7 +111,7 @@ class ConversationService {
   }
 
   public async editMessage(request: EditMessageRequest): Promise<AddMessageResponse> {
-    const response = await fetch(`${this.baseUrl}/conversations/edit`, {
+    const response = await fetch(`${this.pb.baseUrl}/conversations/edit`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(request)
@@ -126,7 +126,7 @@ class ConversationService {
   }
 
   public async getConversation(conversationId: string): Promise<Conversation> {
-    const response = await fetch(`${this.baseUrl}/conversations/${conversationId}`, {
+    const response = await fetch(`${this.pb.baseUrl}/conversations/${conversationId}`, {
       method: 'GET',
       headers: this.getAuthHeaders()
     });
@@ -140,7 +140,7 @@ class ConversationService {
   }
 
   public async getConversations(type?: string, includeMessages?: boolean): Promise<Conversation[]> {
-    const url = new URL(`${this.baseUrl}/conversations/`);
+    const url = new URL(`${this.pb.baseUrl}/conversations/`);
     if (type) {
       url.searchParams.append('type', type);
     }
@@ -163,17 +163,37 @@ class ConversationService {
   }
 
   // Helper method to build message history for API calls
-  public buildMessageHistory(messages: ConversationMessage[]): Array<{role: 'user' | 'assistant'; content: string}> {
-    const history: Array<{role: 'user' | 'assistant'; content: string}> = [];
-    
+  public buildMessageHistory(messages: ConversationMessage[]): Array<{ role: 'user' | 'assistant'; content: string }> {
+    const history: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+
     for (const message of messages) {
       if (message.active) {
         history.push({ role: 'user', content: message.user_message });
         history.push({ role: 'assistant', content: message.response_message });
       }
     }
-    
+
     return history;
+  }
+
+  public subscribeToConversations(callback: (conversation: Conversation) => void): () => void {
+    if (!this.authService.user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Subscribe to changes for the current user's conversations with retry
+    return this.pbService.subscribeWithRetry('conversations', async (data: any) => {
+      if (data.record) {
+        try {
+          const conversation = await this.getConversation(data.record.id);
+          callback(conversation);
+        } catch (error) {
+          console.error('Error fetching updated conversation:', error);
+        }
+      }
+    }, {
+      filter: `user = "${this.authService.user.id}"`
+    });
   }
 }
 

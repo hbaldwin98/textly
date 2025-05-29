@@ -7,9 +7,8 @@ export class DocumentManagerService {
     private documentService: DocumentService;
     private currentDocumentId: string | null = null;
     private unsubscribeFromDocument: (() => void) | null = null;
-    private readonly SAVE_DELAY = 100;
+    private readonly SAVE_DELAY = 1000;
     private debouncedSave: ((content: string) => Promise<void>) | null = null;
-    private pendingSavePromise: Promise<void> | null = null;
 
     private constructor() {
         this.documentService = DocumentService.getInstance();

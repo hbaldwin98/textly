@@ -1,5 +1,6 @@
 import PocketBase, { type RecordModel } from 'pocketbase';
 import { AuthorizationService } from '../authorization/authorization.service';
+import { PocketBaseService } from '../pocketbase.service';
 
 export interface Document extends RecordModel {
     id: string;
@@ -16,6 +17,7 @@ export interface Document extends RecordModel {
 export class DocumentService {
     private static instance: DocumentService;
     private readonly pb: PocketBase;
+    private readonly pbService = PocketBaseService.getInstance();
     private authService: AuthorizationService;
 
     private constructor() {
@@ -203,26 +205,19 @@ export class DocumentService {
             throw new Error('User not authenticated');
         }
 
-        // Subscribe to changes for the current user's documents
-        this.pb.collection('documents').subscribe('*', callback, {
+        // Subscribe to changes for the current user's documents with retry
+        return this.pbService.subscribeWithRetry('documents', callback, {
             filter: `user = "${this.authService.user.id}"`
         });
-
-        // Return unsubscribe function
-        return () => {
-            this.pb.collection('documents').unsubscribe('*');
-        };
     }
 
     /**
      * Subscribe to real-time changes for a specific document
      */
     public subscribeToDocument(documentId: string, callback: (data: any) => void): () => void {
-        this.pb.collection('documents').subscribe(documentId, callback);
-
-        // Return unsubscribe function
-        return () => {
-            this.pb.collection('documents').unsubscribe(documentId);
-        };
+        // Subscribe to changes for a specific document with retry
+        return this.pbService.subscribeWithRetry('documents', callback, {
+            filter: `id = "${documentId}"`
+        });
     }
 } 

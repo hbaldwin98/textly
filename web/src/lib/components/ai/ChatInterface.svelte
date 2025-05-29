@@ -1,8 +1,9 @@
 <script lang="ts">
   import { aiService, aiStore, type ChatMessage } from "$lib/services/ai";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { marked } from "marked";
   import ModelSelector from "./ModelSelector.svelte";
+  import ConversationService from "$lib/services/ai/conversation.service";
 
   // State
   let messageInput = $state("");
@@ -13,6 +14,7 @@
   let activeMenuMessageId = $state<string | null>(null);
   let renderedContents = new Map<string, string>();
   let isConversationPanelVisible = $state(false);
+  let unsubscribe: (() => void) | null = null;
 
   // Subscribe to the store using runes
   let aiState = $derived($aiStore);
@@ -20,16 +22,28 @@
   // Load conversations on mount
   onMount(async () => {
     await aiService.loadConversationsFromBackend();
+    
+    // Subscribe to conversation changes
+    unsubscribe = ConversationService.getInstance().subscribeToConversations((updatedConversation) => {
+      // Only update if it's not the current conversation
+      if (updatedConversation.id !== aiState.currentConversation?.id) {
+        aiService.updateConversationInList(updatedConversation);
+      }
+    });
   });
 
-  // Configure marked options
+  onDestroy(() => {
+    if (unsubscribe) {
+      unsubscribe();
+    }
+  });
+
   marked.setOptions({
-    breaks: true, // Convert line breaks to <br>
-    gfm: true, // GitHub Flavored Markdown
-    async: true, // Enable async rendering
+    breaks: true,
+    gfm: true,
+    async: true,
   });
 
-  // Function to render markdown content
   function renderMarkdown(
     node: HTMLElement,
     content: string,

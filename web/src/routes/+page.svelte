@@ -19,23 +19,19 @@
   let isSpellcheckEnabled = $state(true);
   let isCommandPaletteOpen = $state(false);
 
-  // Auth and document state
   let authState = $derived($authStore);
   let isLoggedIn = $derived(authState.isLoggedIn);
   let activeDocument = $derived($currentDocument);
   let hasDocument = $derived(!!activeDocument);
   let documentManager: DocumentManagerService | null = null;
 
-  // Fallback content for when no document is active (must be declared before derived)
   let fallbackContent = $state("");
 
-  // Content state - derived from document or fallback content
   let editorContent = $derived.by(() => {
     if (activeDocument) {
       return activeDocument.content || "";
     }
 
-    // Fallback content for non-logged-in users or when no document is selected
     return fallbackContent;
   });
 
@@ -129,6 +125,7 @@
       await restorePreviousDocument();
     }
   }
+
   $effect(() => {
     if (!isLoggedIn && documentManager) {
       documentManager.clearCurrentDocument();
@@ -145,7 +142,6 @@
     }
   });
 
-  // Keyboard shortcuts
   onMount(() => {
     function handleKeydown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {

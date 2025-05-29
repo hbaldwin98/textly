@@ -1,15 +1,15 @@
-import PocketBase, { type AuthRecord } from 'pocketbase';
+import { type AuthRecord } from 'pocketbase';
 import { updateAuthState, clearAuthState } from '$lib/stores/auth.store';
+import { PocketBaseService } from '../pocketbase.service';
 
 export class AuthorizationService {
     private static instance: AuthorizationService;
-    private readonly pb: PocketBase;
+    private readonly pb = PocketBaseService.getInstance().client;
 
     get token(): string { return this.pb.authStore.token; }
     get user(): AuthRecord | null { return this.pb.authStore.model as AuthRecord | null; }
 
     private constructor() {
-        this.pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080');
         this.updateReactiveStore();
 
         this.pb.authStore.onChange(() => {
