@@ -1,5 +1,4 @@
-import { writable, type Writable } from 'svelte/store';
-import { browser } from '$app/environment';
+import { writable } from 'svelte/store';
 import { AuthorizationService } from '../authorization/authorization.service';
 import ConversationService, { type Conversation } from './conversation.service';
 import { modelService } from './model.service';
@@ -327,20 +326,20 @@ class AIService {
 
             const chunk = decoder.decode(value, { stream: true });
             buffer += chunk;
-            
+
             // Process complete SSE events (separated by \n\n)
             let eventEndIndex;
             while ((eventEndIndex = buffer.indexOf('\n\n')) !== -1) {
               const eventData = buffer.slice(0, eventEndIndex);
               buffer = buffer.slice(eventEndIndex + 2);
-              
+
               if (eventData.trim()) {
                 // Parse SSE event
                 const lines = eventData.split('\n');
                 for (const line of lines) {
                   if (line.startsWith('data: ')) {
                     const data = line.slice(6); // Remove 'data: ' prefix
-                    
+
                     if (data === '[DONE]') {
                       // Stream is complete
                       break;
@@ -352,10 +351,10 @@ class AIService {
                           realConversationId = parsed.conversation_id;
                           // Update the conversation ID in the store
                           this.store.update(state => {
-                            const updatedConversations = state.conversations.map(c => 
+                            const updatedConversations = state.conversations.map(c =>
                               c.id === conversationForUI.id ? { ...c, id: realConversationId } : c
                             );
-                            const updatedCurrentConversation = state.currentConversation?.id === conversationForUI.id 
+                            const updatedCurrentConversation = state.currentConversation?.id === conversationForUI.id
                               ? { ...state.currentConversation, id: realConversationId }
                               : state.currentConversation;
 
@@ -401,15 +400,15 @@ class AIService {
                               conversations: updatedConversations
                             };
                           });
-                          
+
                           // Update conversationForUI to reflect the new message ID
                           conversationForUI = {
                             ...conversationForUI,
-                            messages: conversationForUI.messages.map(m => 
+                            messages: conversationForUI.messages.map(m =>
                               m.id === userMessage.id ? { ...m, id: realMessageId as string } : m
                             )
                           };
-                          
+
                           // Update userMessage reference for assistant message ID
                           userMessage.id = realMessageId as string;
                         }
@@ -420,7 +419,7 @@ class AIService {
                       // Handle thinking state and content events
                       try {
                         const parsed = JSON.parse(data);
-                        
+
                         if (typeof parsed.thinking === 'boolean') {
                           // Update thinking state
                           const updatedAssistantMessage = {
@@ -456,7 +455,7 @@ class AIService {
                           conversationForUI = updatedConversation;
                           assistantMessage.thinking = parsed.thinking;
                         }
-                        
+
                         if (parsed.thinking_content) {
                           // Append thinking content with proper unescaping
                           const currentThinkingContent = assistantMessage.thinkingContent || '';
@@ -548,7 +547,7 @@ class AIService {
           reader.releaseLock();
           // Clear the abort controller and set loading to false when done
           this.currentAbortController = null;
-          
+
           // Update assistant message ID to use database-derived ID if we have the real message ID
           if (realMessageId) {
             const assistantMessageId = realMessageId + '_assistant';
@@ -624,14 +623,14 @@ class AIService {
       // Find the message to edit
       const messageToEdit = conversation.messages.find(m => m.id === messageId);
       if (!messageToEdit) throw new Error('Message not found');
-      
+
       // Only allow editing user messages
       if (messageToEdit.role !== 'user') throw new Error('Can only edit user messages');
 
       // Find the index of the message to edit
       const messageIndex = conversation.messages.findIndex(m => m.id === messageId);
       if (messageIndex === -1) throw new Error('Message not found');
-      
+
       // Use the message ID directly for the database request
       const databaseMessageId = messageId;
 
@@ -730,20 +729,20 @@ class AIService {
 
             const chunk = decoder.decode(value, { stream: true });
             buffer += chunk;
-            
+
             // Process complete SSE events (separated by \n\n)
             let eventEndIndex;
             while ((eventEndIndex = buffer.indexOf('\n\n')) !== -1) {
               const eventData = buffer.slice(0, eventEndIndex);
               buffer = buffer.slice(eventEndIndex + 2);
-              
+
               if (eventData.trim()) {
                 // Parse SSE event
                 const lines = eventData.split('\n');
                 for (const line of lines) {
                   if (line.startsWith('data: ')) {
                     const data = line.slice(6); // Remove 'data: ' prefix
-                    
+
                     if (data === '[DONE]') {
                       // Stream is complete
                       break;
@@ -778,15 +777,15 @@ class AIService {
                               conversations: updatedConversations
                             };
                           });
-                          
+
                           // Update conversationForUI to reflect the new message ID
                           conversationForUI = {
                             ...conversationForUI,
-                            messages: conversationForUI.messages.map(m => 
+                            messages: conversationForUI.messages.map(m =>
                               m.id === editedMessage.id ? { ...m, id: realMessageId as string } : m
                             )
                           };
-                          
+
                           // Update editedMessage reference
                           editedMessage.id = realMessageId as string;
                         }
@@ -797,7 +796,7 @@ class AIService {
                       // Handle thinking state and content events
                       try {
                         const parsed = JSON.parse(data);
-                        
+
                         if (typeof parsed.thinking === 'boolean') {
                           // Update thinking state
                           const updatedAssistantMessage = {
@@ -833,7 +832,7 @@ class AIService {
                           conversationForUI = updatedConversation;
                           assistantMessage.thinking = parsed.thinking;
                         }
-                        
+
                         if (parsed.thinking_content) {
                           // Append thinking content with proper unescaping
                           const currentThinkingContent = assistantMessage.thinkingContent || '';
@@ -925,7 +924,7 @@ class AIService {
           reader.releaseLock();
           // Clear the abort controller and set loading to false when done
           this.currentAbortController = null;
-          
+
           // Update assistant message ID to use database-derived ID if we have the real message ID
           if (realMessageId) {
             const assistantMessageId = realMessageId + '_assistant';
@@ -996,7 +995,7 @@ class AIService {
       }
 
       const backendConversations = await response.json();
-      
+
       // Convert backend conversations to frontend format
       const conversations: ChatConversation[] = backendConversations?.map((conv: any) => ({
         id: conv.id,
@@ -1056,7 +1055,7 @@ class AIService {
       }
 
       const backendConversation = await response.json();
-      
+
       // Convert backend conversation to frontend format
       const messages: ChatMessage[] = [];
       for (const msg of backendConversation?.messages ?? []) {
@@ -1068,7 +1067,7 @@ class AIService {
             content: msg.user_message,
             timestamp: new Date(msg.created).getTime()
           });
-          
+
           // Add assistant message with a derived ID
           messages.push({
             id: msg.id + '_assistant', // Derived ID for assistant response
@@ -1149,20 +1148,20 @@ class AIService {
   // Existing methods
   private trimContext(context: string, text: string, maxWords: number = 100): string {
     if (!context) return '';
-    
+
     // Split context into words
     const words = context.split(/\s+/);
     const textWords = text.split(/\s+/);
-    
+
     // Find the position of the selected text in the context
     const textStart = context.indexOf(text);
     if (textStart === -1) return context; // If text not found, return full context
-    
+
     // Calculate word positions
     let beforeWordCount = 0;
     let afterWordCount = 0;
     let currentWordCount = 0;
-    
+
     for (let i = 0; i < words.length; i++) {
       if (currentWordCount < textStart) {
         beforeWordCount++;
@@ -1171,17 +1170,17 @@ class AIService {
       }
       currentWordCount += words[i].length + 1; // +1 for the space
     }
-    
+
     // Get surrounding words, excluding the selected text
     const startIndex = Math.max(0, beforeWordCount - maxWords);
     const endIndex = Math.min(words.length, beforeWordCount + textWords.length + maxWords);
-    
+
     // Get the words and join them
     let result = words.slice(startIndex, endIndex).join(' ');
-    
+
     // Remove the selected text from the context
     result = result.replace(text, '').trim();
-    
+
     // If the result is longer than 1000 characters, trim it
     if (result.length > 1000) {
       // Find the last space before the 1000 character limit
@@ -1193,7 +1192,7 @@ class AIService {
         result = result.substring(0, 1000) + '...';
       }
     }
-    
+
     return result;
   }
 
@@ -1265,7 +1264,7 @@ class AIService {
     this.store.update(state => {
       const conversations = [...state.conversations];
       const index = conversations.findIndex(c => c.id === updatedConversation.id);
-      
+
       if (index !== -1) {
         // Convert the Conversation type to ChatConversation type
         const chatConversation: ChatConversation = {
@@ -1281,10 +1280,10 @@ class AIService {
           createdAt: new Date(updatedConversation.created).getTime(),
           updatedAt: new Date(updatedConversation.updated).getTime()
         };
-        
+
         conversations[index] = chatConversation;
       }
-      
+
       return { ...state, conversations };
     });
   }
