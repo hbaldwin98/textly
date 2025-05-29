@@ -282,6 +282,13 @@
     if (!target.closest(".message-menu") && !target.closest(".menu-button")) {
       activeMenuMessageId = null;
     }
+    
+    // Close conversation panel when clicking outside
+    if (isConversationPanelVisible && 
+        !target.closest(".conversation-panel") && 
+        !target.closest(".panel-toggle")) {
+      isConversationPanelVisible = false;
+    }
   }
 </script>
 
@@ -292,14 +299,14 @@
   <div class="flex flex-1 min-h-0">
     <!-- Conversation List -->
     <div
-      class="w-64 border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all duration-300 fixed top-0 bottom-0 left-0 z-50 shadow-xl"
+      class="w-64 border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all duration-300 fixed top-0 bottom-0 left-0 z-50 shadow-xl conversation-panel"
       class:translate-x-0={isConversationPanelVisible}
       class:-translate-x-full={!isConversationPanelVisible}
     >
       <!-- Panel Tab -->
       <div class="absolute -right-6 top-1/2 -translate-y-1/2">
         <button
-          class="w-6 h-12 bg-white dark:bg-zinc-900 border border-l-0 border-gray-200 dark:border-zinc-800 rounded-r-md shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center"
+          class="w-6 h-12 bg-white dark:bg-zinc-900 border border-l-0 border-gray-200 dark:border-zinc-800 rounded-r-md shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center panel-toggle"
           onclick={() =>
             (isConversationPanelVisible = !isConversationPanelVisible)}
           title={isConversationPanelVisible
