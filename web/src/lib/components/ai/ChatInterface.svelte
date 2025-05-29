@@ -4,6 +4,7 @@
   import { marked } from "marked";
   import ModelSelector from "./ModelSelector.svelte";
   import ConversationService from "$lib/services/ai/conversation.service";
+  import { layoutStore } from "$lib/services/layout/layout.service";
 
   // State
   let messageInput = $state("");
@@ -18,6 +19,7 @@
 
   // Subscribe to the store using runes
   let aiState = $derived($aiStore);
+  let layoutState = $derived($layoutStore);
 
   // Load conversations on mount
   onMount(async () => {
@@ -285,206 +287,60 @@
 <svelte:window onclick={handleClickOutside} />
 
 <div class="flex flex-col h-full">
-  <!-- Conversation Panel Toggle -->
-  <div class="relative">
-    <div class="absolute right-2 flex items-center gap-2 z-50">
-      <button
-        class="px-3 py-1.5 text-sm text-gray-600 dark:text-zinc-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-md transition-colors flex items-center gap-2 shadow-sm border border-gray-200 dark:border-zinc-700 bg-opacity-25 hover:bg-opacity-100 transition-opacity duration-200 opacity-50 hover:opacity-100"
-        onclick={() =>
-          (isConversationPanelVisible = !isConversationPanelVisible)}
-        title={isConversationPanelVisible
-          ? "Hide Previous Conversations"
-          : "Show Previous Conversations"}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-4 w-4"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          {#if isConversationPanelVisible}
-            <path
-              fill-rule="evenodd"
-              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-              clip-rule="evenodd"
-            />
-          {:else}
-            <path
-              fill-rule="evenodd"
-              d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
-              clip-rule="evenodd"
-            />
-          {/if}
-        </svg>
-        {isConversationPanelVisible
-          ? "Hide Previous Conversations"
-          : "Show Previous Conversations"}
-      </button>
-    </div>
-  </div>
-
-  <!-- Conversation List -->
-  <div
-    class="fixed top-32 left-0 right-0 z-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-3 shadow-lg rounded-lg mx-4"
-    class:hidden={!isConversationPanelVisible}
-  >
-    <div class="flex items-center justify-between mb-3">
-      <h4
-        class="text-xs font-medium text-gray-600 dark:text-zinc-400 uppercase tracking-wide"
-      >
-        Conversations
-      </h4>
-    </div>
-
-    <div class="space-y-1 max-h-32 overflow-y-auto">
-      {#each aiState.conversations as conversation}
-        <div class="flex items-center gap-2 pr-2">
-          <button
-            class="flex-1 text-left text-xs p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate min-w-0"
-            class:bg-blue-50={aiState.currentConversation?.id ===
-              conversation.id}
-            class:dark:bg-blue-950={aiState.currentConversation?.id ===
-              conversation.id}
-            class:text-blue-600={aiState.currentConversation?.id ===
-              conversation.id}
-            class:dark:text-blue-400={aiState.currentConversation?.id ===
-              conversation.id}
-            onclick={() => loadConversation(conversation.id)}
-            title={conversation.title}
-          >
-            <div class="flex items-center justify-between gap-2 min-w-0">
-              <div class="font-medium truncate flex-1">
-                {conversation.title}
-              </div>
-              <div
-                class="text-gray-500 dark:text-zinc-400 flex-shrink-0 text-right"
-              >
-                {formatTimestamp(conversation.updatedAt)}
-              </div>
-            </div>
-          </button>
-          <button
-            class="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
-            onclick={() => {
-              if (
-                confirm(
-                  "Are you sure you want to delete this conversation? This action cannot be undone."
-                )
-              ) {
-                deleteConversation(conversation.id);
-              }
-            }}
-            title="Delete Chat"
-            aria-label="Delete Current Chat"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-3 w-3"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
-      {/each}
-
-      {#if aiState.conversations.length === 0}
-        <div class="text-xs text-gray-500 dark:text-zinc-400 text-center py-2">
-          No conversations yet
-        </div>
-      {/if}
-    </div>
-
-    <div
-      class="mt-2 pt-2 border-t border-gray-200 dark:border-zinc-800 flex justify-end"
-    >
-      <button
-        class="px-2 py-1 text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-colors flex items-center gap-1"
-        onclick={createNewConversation}
-        title="New Chat"
-        aria-label="Start New Chat"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-3 w-3"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        New
-      </button>
-    </div>
-  </div>
-
-  <!-- Chat Messages -->
-  <div
-    class="flex-1 overflow-y-auto p-3 space-y-4 relative"
-    bind:this={chatContainer}
-    onscroll={handleScroll}
-  >
+  <!-- Main Content Area -->
+  <div class="flex flex-1 min-h-0">
     <!-- Conversation List -->
     <div
-      class="fixed top-32 left-0 right-0 z-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-3 mx-4"
-      class:hidden={!isConversationPanelVisible}
+      class="w-64 border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all duration-300 fixed top-0 bottom-0 left-0 z-50 shadow-xl"
+      class:translate-x-0={isConversationPanelVisible}
+      class:-translate-x-full={!isConversationPanelVisible}
     >
-      <div class="flex items-center justify-between mb-3">
-        <h4
-          class="text-xs font-medium text-gray-600 dark:text-zinc-400 uppercase tracking-wide"
+      <!-- Panel Tab -->
+      <div class="absolute -right-6 top-1/2 -translate-y-1/2">
+        <button
+          class="w-6 h-12 bg-white dark:bg-zinc-900 border border-l-0 border-gray-200 dark:border-zinc-800 rounded-r-md shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center"
+          onclick={() =>
+            (isConversationPanelVisible = !isConversationPanelVisible)}
+          title={isConversationPanelVisible
+            ? "Hide Previous Conversations"
+            : "Show Previous Conversations"}
         >
-          Conversations
-        </h4>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-3 w-3 text-gray-600 dark:text-zinc-400"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            {#if isConversationPanelVisible}
+              <path
+                fill-rule="evenodd"
+                d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                clip-rule="evenodd"
+              />
+            {:else}
+              <path
+                fill-rule="evenodd"
+                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                clip-rule="evenodd"
+              />
+            {/if}
+          </svg>
+        </button>
       </div>
 
-      <div class="space-y-1 max-h-32 overflow-y-auto">
-        {#each aiState.conversations as conversation}
-          <div class="flex items-center gap-2 pr-2">
+      <div class="p-3 h-full flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h4
+            class="text-xs font-medium text-gray-600 dark:text-zinc-400 uppercase tracking-wide"
+          >
+            Conversations
+          </h4>
+          <div class="flex items-center gap-2">
             <button
-              class="flex-1 text-left text-xs p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate min-w-0"
-              class:bg-blue-50={aiState.currentConversation?.id ===
-                conversation.id}
-              class:dark:bg-blue-950={aiState.currentConversation?.id ===
-                conversation.id}
-              class:text-blue-600={aiState.currentConversation?.id ===
-                conversation.id}
-              class:dark:text-blue-400={aiState.currentConversation?.id ===
-                conversation.id}
-              onclick={() => loadConversation(conversation.id)}
-              title={conversation.title}
-            >
-              <div class="flex items-center justify-between gap-2 min-w-0">
-                <div class="font-medium truncate flex-1">
-                  {conversation.title}
-                </div>
-                <div
-                  class="text-gray-500 dark:text-zinc-400 flex-shrink-0 text-right"
-                >
-                  {formatTimestamp(conversation.updatedAt)}
-                </div>
-              </div>
-            </button>
-            <button
-              class="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
-              onclick={() => {
-                if (
-                  confirm(
-                    "Are you sure you want to delete this conversation? This action cannot be undone."
-                  )
-                ) {
-                  deleteConversation(conversation.id);
-                }
-              }}
-              title="Delete Chat"
-              aria-label="Delete Current Chat"
+              class="px-2 py-1 text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-colors flex items-center gap-1"
+              onclick={createNewConversation}
+              title="New Chat"
+              aria-label="Start New Chat"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -494,192 +350,336 @@
               >
                 <path
                   fill-rule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
                   clip-rule="evenodd"
                 />
               </svg>
+              New
             </button>
+            {#if layoutState.isFullscreen}
+              <button
+                class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200 transition-colors"
+                onclick={() => (isConversationPanelVisible = false)}
+                title="Close Panel"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            {/if}
           </div>
-        {/each}
+        </div>
 
-        {#if aiState.conversations.length === 0}
-          <div
-            class="text-xs text-gray-500 dark:text-zinc-400 text-center py-2"
-          >
-            No conversations yet
-          </div>
-        {/if}
+        <div class="flex-1 overflow-y-auto space-y-1">
+          {#each aiState.conversations as conversation}
+            <div class="flex items-center gap-2 pr-2">
+              <button
+                class="flex-1 text-left text-xs p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate min-w-0"
+                class:bg-blue-50={aiState.currentConversation?.id ===
+                  conversation.id}
+                class:dark:bg-blue-950={aiState.currentConversation?.id ===
+                  conversation.id}
+                class:text-blue-600={aiState.currentConversation?.id ===
+                  conversation.id}
+                class:dark:text-blue-400={aiState.currentConversation?.id ===
+                  conversation.id}
+                onclick={() => loadConversation(conversation.id)}
+                title={conversation.title}
+              >
+                <div class="flex items-center justify-between gap-2 min-w-0">
+                  <div class="font-medium truncate flex-1">
+                    {conversation.title}
+                  </div>
+                  <div
+                    class="text-gray-500 dark:text-zinc-400 flex-shrink-0 text-right"
+                  >
+                    {formatTimestamp(conversation.updatedAt)}
+                  </div>
+                </div>
+              </button>
+              <button
+                class="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
+                onclick={() => {
+                  if (
+                    confirm(
+                      "Are you sure you want to delete this conversation? This action cannot be undone."
+                    )
+                  ) {
+                    deleteConversation(conversation.id);
+                  }
+                }}
+                title="Delete Chat"
+                aria-label="Delete Current Chat"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-3 w-3"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+          {/each}
+
+          {#if aiState.conversations.length === 0}
+            <div class="text-xs text-gray-500 dark:text-zinc-400 text-center py-2">
+              No conversations yet
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
 
-    {#if aiState.currentConversation?.messages.length === 0 || !aiState.currentConversation}
-      <div class="text-center text-gray-500 dark:text-zinc-400 py-8">
-        <div class="text-2xl mb-2">💬</div>
-        <div class="text-sm">Start a conversation with the AI assistant</div>
-        <div class="text-xs mt-1">
-          Ask questions, get writing help, or discuss ideas
-        </div>
-      </div>
-    {:else}
-      {#each aiState.currentConversation.messages as message}
-        <div
-          class="flex {message.role === 'user'
-            ? 'justify-end'
-            : 'justify-start'}"
+    <!-- Chat Messages -->
+    <div
+      class="flex-1 overflow-y-auto p-3 space-y-4 relative"
+      bind:this={chatContainer}
+      onscroll={handleScroll}
+    >
+      <!-- Conversation Panel Toggle -->
+      <div class="absolute top-3 left-3 z-10">
+        <button
+          class="px-3 py-1.5 text-sm text-gray-600 dark:text-zinc-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-md transition-colors flex items-center gap-2 shadow-sm border border-gray-200 dark:border-zinc-700"
+          onclick={() =>
+            (isConversationPanelVisible = !isConversationPanelVisible)}
+          title={isConversationPanelVisible
+            ? "Hide Previous Conversations"
+            : "Show Previous Conversations"}
         >
-          <div
-            class="w-[80%] {message.role === 'user' ? 'order-2' : 'order-1'}"
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
           >
-            <div class="relative">
-              <div
-                class="px-3 py-2 rounded-lg text-sm {message.role === 'user'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100'}"
-              >
-                {#if message.role === "user" && editingMessageId === message.id}
-                  <div class="flex flex-col">
-                    <div
-                      contenteditable="true"
-                      bind:this={editingElement}
-                      bind:innerHTML={editingContent}
-                      oninput={handleInput}
-                      onkeydown={handleKeydown}
-                      class="w-full bg-transparent outline-none whitespace-pre-wrap break-words min-h-[1.5em]"
-                      role="textbox"
-                      aria-multiline="true"
-                      tabindex="0"
-                    ></div>
-                    <div class="flex justify-end gap-2 mt-2">
-                      <button
-                        class="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
-                        onclick={cancelEditing}
-                        title="Cancel editing"
-                        disabled={aiState.isChatLoading}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                        onclick={sendMessage}
-                        disabled={!messageInput.trim() || aiState.isChatLoading}
-                        title="Apply changes and resubmit"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                    {#if aiState.isChatLoading}
-                      <div class="flex items-center space-x-1 mt-2">
-                        <div
-                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                        ></div>
-                        <div
-                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          style="animation-delay: 0.1s"
-                        ></div>
-                        <div
-                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          style="animation-delay: 0.2s"
-                        ></div>
-                      </div>
-                    {/if}
-                  </div>
-                {:else}
-                  {#if message.role === "user"}
-                    <div
-                      class="whitespace-pre-wrap break-words overflow-hidden {editingMessageId !==
-                      message.id
-                        ? 'pr-8'
-                        : ''}"
-                    >
-                      {message.content}
-                    </div>
-                  {:else if message.thinking}
-                    <!-- Thinking bubble -->
-                    <div
-                      class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400"
-                    >
-                      <div class="flex items-center space-x-1">
-                        <div
-                          class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                        ></div>
-                        <div
-                          class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          style="animation-delay: 0.1s"
-                        ></div>
-                        <div
-                          class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          style="animation-delay: 0.2s"
-                        ></div>
-                      </div>
-                      <span class="text-sm">Thinking...</span>
-                    </div>
-                    {#if message.thinkingContent}
-                      <details class="mt-2 text-sm">
-                        <summary
-                          class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100"
+            {#if isConversationPanelVisible}
+              <path
+                fill-rule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            {:else}
+              <path
+                fill-rule="evenodd"
+                d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
+                clip-rule="evenodd"
+              />
+            {/if}
+          </svg>
+          {isConversationPanelVisible
+            ? "Hide Previous Conversations"
+            : "Show Previous Conversations"}
+        </button>
+      </div>
+
+      {#if aiState.currentConversation?.messages.length === 0 || !aiState.currentConversation}
+        <div class="text-center text-gray-500 dark:text-zinc-400 py-8">
+          <div class="text-2xl mb-2">💬</div>
+          <div class="text-sm">Start a conversation with the AI assistant</div>
+          <div class="text-xs mt-1">
+            Ask questions, get writing help, or discuss ideas
+          </div>
+        </div>
+      {:else}
+        {#each aiState.currentConversation.messages as message}
+          <div
+            class="flex {message.role === 'user'
+              ? 'justify-end'
+              : 'justify-start'}"
+          >
+            <div
+              class="w-[80%] {message.role === 'user' ? 'order-2' : 'order-1'}"
+            >
+              <div class="relative">
+                <div
+                  class="px-3 py-2 rounded-lg text-sm {message.role === 'user'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100'}"
+                >
+                  {#if message.role === "user" && editingMessageId === message.id}
+                    <div class="flex flex-col">
+                      <div
+                        contenteditable="true"
+                        bind:this={editingElement}
+                        bind:innerHTML={editingContent}
+                        oninput={handleInput}
+                        onkeydown={handleKeydown}
+                        class="w-full bg-transparent outline-none whitespace-pre-wrap break-words min-h-[1.5em]"
+                        role="textbox"
+                        aria-multiline="true"
+                        tabindex="0"
+                      ></div>
+                      <div class="flex justify-end gap-2 mt-2">
+                        <button
+                          class="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
+                          onclick={cancelEditing}
+                          title="Cancel editing"
+                          disabled={aiState.isChatLoading}
                         >
-                          <span class="text-xs">💭 View thought process</span>
-                        </summary>
-                        <div
-                          class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600"
+                          Cancel
+                        </button>
+                        <button
+                          class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                          onclick={sendMessage}
+                          disabled={!messageInput.trim() || aiState.isChatLoading}
+                          title="Apply changes and resubmit"
                         >
+                          Apply
+                        </button>
+                      </div>
+                      {#if aiState.isChatLoading}
+                        <div class="flex items-center space-x-1 mt-2">
                           <div
-                            class="text-gray-700 dark:text-zinc-300 font-mono text-xs"
-                          >
-                            {@html formatThinkingContent(
-                              message.thinkingContent
-                            )}
-                          </div>
+                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          ></div>
+                          <div
+                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.1s"
+                          ></div>
+                          <div
+                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.2s"
+                          ></div>
                         </div>
-                      </details>
-                    {/if}
+                      {/if}
+                    </div>
                   {:else}
-                    <div
-                      class="prose prose-sm dark:prose-invert max-w-none"
-                      use:markdownAction={[message.content, message.id]}
-                    ></div>
-                    {#if message.thinkingContent}
-                      <details class="mt-2">
-                        <summary
-                          class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100"
-                        >
-                          <span class="text-xs">💭 View thought process</span>
-                        </summary>
-                        <div
-                          class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600"
-                        >
-                          <div
-                            class="text-gray-700 dark:text-zinc-300 font-mono text-xs"
-                          >
-                            {@html formatThinkingContent(
-                              message.thinkingContent
-                            )}
-                          </div>
-                        </div>
-                      </details>
-                    {/if}
-                    {#if aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id}
-                      <div class="flex items-center space-x-1 mt-2">
-                        <div
-                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                        ></div>
-                        <div
-                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          style="animation-delay: 0.1s"
-                        ></div>
-                        <div
-                          class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                          style="animation-delay: 0.2s"
-                        ></div>
+                    {#if message.role === "user"}
+                      <div
+                        class="whitespace-pre-wrap break-words overflow-hidden {editingMessageId !==
+                        message.id
+                          ? 'pr-8'
+                          : ''}"
+                      >
+                        {message.content}
                       </div>
+                    {:else if message.thinking}
+                      <!-- Thinking bubble -->
+                      <div
+                        class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400"
+                      >
+                        <div class="flex items-center space-x-1">
+                          <div
+                            class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          ></div>
+                          <div
+                            class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.1s"
+                          ></div>
+                          <div
+                            class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.2s"
+                          ></div>
+                        </div>
+                        <span class="text-sm">Thinking...</span>
+                      </div>
+                      {#if message.thinkingContent}
+                        <details class="mt-2 text-sm">
+                          <summary
+                            class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100"
+                          >
+                            <span class="text-xs">💭 View thought process</span>
+                          </summary>
+                          <div
+                            class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600"
+                          >
+                            <div
+                              class="text-gray-700 dark:text-zinc-300 font-mono text-xs"
+                            >
+                              {@html formatThinkingContent(
+                                message.thinkingContent
+                              )}
+                            </div>
+                          </div>
+                        </details>
+                      {/if}
+                    {:else}
+                      <div
+                        class="prose prose-sm dark:prose-invert max-w-none"
+                        use:markdownAction={[message.content, message.id]}
+                      ></div>
+                      {#if message.thinkingContent}
+                        <details class="mt-2">
+                          <summary
+                            class="cursor-pointer text-gray-600 dark:text-zinc-300 hover:text-gray-800 dark:hover:text-zinc-100"
+                          >
+                            <span class="text-xs">💭 View thought process</span>
+                          </summary>
+                          <div
+                            class="mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-md border-l-4 border-blue-300 dark:border-blue-600"
+                          >
+                            <div
+                              class="text-gray-700 dark:text-zinc-300 font-mono text-xs"
+                            >
+                              {@html formatThinkingContent(
+                                message.thinkingContent
+                              )}
+                            </div>
+                          </div>
+                        </details>
+                      {/if}
+                      {#if aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id}
+                        <div class="flex items-center space-x-1 mt-2">
+                          <div
+                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                          ></div>
+                          <div
+                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.1s"
+                          ></div>
+                          <div
+                            class="w-1.5 h-1.5 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                            style="animation-delay: 0.2s"
+                          ></div>
+                        </div>
+                      {/if}
+                    {/if}
+                    {#if message.role === "user" && editingMessageId !== message.id}
+                      <button
+                        class="menu-button absolute top-2 right-2 p-1 text-blue-200 hover:text-white transition-colors"
+                        onclick={() => toggleMessageMenu(message.id)}
+                        title="Message options"
+                        aria-label="Message options menu"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"
+                          />
+                        </svg>
+                      </button>
                     {/if}
                   {/if}
-                  {#if message.role === "user" && editingMessageId !== message.id}
+                </div>
+                {#if message.role === "user" && editingMessageId !== message.id && activeMenuMessageId === message.id}
+                  <div
+                    class="message-menu absolute right-0 top-full mt-1 bg-white dark:bg-zinc-900 shadow-lg rounded-lg py-1 z-50 min-w-[120px]"
+                  >
                     <button
-                      class="menu-button absolute top-2 right-2 p-1 text-blue-200 hover:text-white transition-colors"
-                      onclick={() => toggleMessageMenu(message.id)}
-                      title="Message options"
-                      aria-label="Message options menu"
+                      class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 text-gray-700 dark:text-zinc-100"
+                      onclick={() => {
+                        startEditing(message);
+                        activeMenuMessageId = null;
+                      }}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -688,92 +688,68 @@
                         fill="currentColor"
                       >
                         <path
-                          d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"
+                          d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
                         />
                       </svg>
+                      Edit message
                     </button>
-                  {/if}
+                  </div>
                 {/if}
               </div>
-              {#if message.role === "user" && editingMessageId !== message.id && activeMenuMessageId === message.id}
-                <div
-                  class="message-menu absolute right-0 top-full mt-1 bg-white dark:bg-zinc-900 shadow-lg rounded-lg py-1 z-50 min-w-[120px]"
-                >
-                  <button
-                    class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 text-gray-700 dark:text-zinc-100"
-                    onclick={() => {
-                      startEditing(message);
-                      activeMenuMessageId = null;
-                    }}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-4 w-4"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
-                      />
-                    </svg>
-                    Edit message
-                  </button>
-                </div>
-              {/if}
-            </div>
-            <div
-              class="text-xs text-gray-500 dark:text-zinc-400 mt-1 {message.role ===
-              'user'
-                ? 'text-right'
-                : 'text-left'}"
-            >
-              {#if !(message.role === "assistant" && aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id)}
-                {formatMessageTime(message.timestamp)}
-              {/if}
+              <div
+                class="text-xs text-gray-500 dark:text-zinc-400 mt-1 {message.role ===
+                'user'
+                  ? 'text-right'
+                  : 'text-left'}"
+              >
+                {#if !(message.role === "assistant" && aiState.isChatLoading && message.id === aiState.currentConversation?.messages[aiState.currentConversation.messages.length - 1]?.id)}
+                  {formatMessageTime(message.timestamp)}
+                {/if}
+              </div>
             </div>
           </div>
-        </div>
-      {/each}
-    {/if}
+        {/each}
+      {/if}
 
-    {#if aiState.isChatLoading}
-      <!-- Show loading indicator when waiting for response to start -->
-      {#if !aiState.currentConversation?.messages.length || aiState.currentConversation.messages[aiState.currentConversation.messages.length - 1]?.role !== "assistant"}
-        <div class="flex justify-start">
-          <div class="w-[80%]">
-            <div
-              class="px-3 py-2 rounded-lg text-sm bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100"
-            >
+      {#if aiState.isChatLoading}
+        <!-- Show loading indicator when waiting for response to start -->
+        {#if !aiState.currentConversation?.messages.length || aiState.currentConversation.messages[aiState.currentConversation.messages.length - 1]?.role !== "assistant"}
+          <div class="flex justify-start">
+            <div class="w-[80%]">
               <div
-                class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400"
+                class="px-3 py-2 rounded-lg text-sm bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100"
               >
-                <div class="flex items-center space-x-1">
-                  <div
-                    class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                  ></div>
-                  <div
-                    class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                    style="animation-delay: 0.1s"
-                  ></div>
-                  <div
-                    class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
-                    style="animation-delay: 0.2s"
-                  ></div>
+                <div
+                  class="flex items-center space-x-2 text-gray-500 dark:text-zinc-400"
+                >
+                  <div class="flex items-center space-x-1">
+                    <div
+                      class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                    ></div>
+                    <div
+                      class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                      style="animation-delay: 0.1s"
+                    ></div>
+                    <div
+                      class="w-2 h-2 bg-gray-400 dark:bg-zinc-400 rounded-full animate-bounce"
+                      style="animation-delay: 0.2s"
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+        {/if}
+      {/if}
+
+      {#if aiState.chatError}
+        <div
+          class="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded"
+        >
+          {aiState.chatError}
         </div>
       {/if}
-    {/if}
-
-    {#if aiState.chatError}
-      <div
-        class="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded"
-      >
-        {aiState.chatError}
-      </div>
-    {/if}
+    </div>
   </div>
 
   <!-- Message Input -->

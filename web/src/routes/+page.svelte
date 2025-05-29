@@ -6,13 +6,13 @@
     PreviewPane,
     ImmersivePane,
     Splitter,
-    AIPanel,
   } from "$lib";
   import { currentDocument } from "$lib/stores/document.store";
   import { authStore } from "$lib/stores/auth.store";
   import { DocumentManagerService } from "$lib/services/documents";
   import { DocumentCommandPalette } from "$lib/components/documents";
   import { layoutStore } from "$lib/services/layout/layout.service";
+  import { AIAssistant } from "$lib/components/ai";
 
   const layoutState = $derived($layoutStore);
   let viewMode = $state("split"); // 'split', 'editor', 'preview', 'focus'
@@ -189,7 +189,7 @@
     <!-- Main Content -->
     <div
       class="flex-1 transition-all duration-300 relative z-10"
-      class:mr-80={layoutState.isAIPanelOpen}
+      class:mr-80={layoutState.isAIAssistantOpen}
     >
       <Sidebar
         {viewMode}
@@ -236,7 +236,7 @@
 
     <!-- AI Suggestions Sidebar -->
     <div class="absolute right-0 top-0 h-full z-20">
-      <AIPanel
+      <AIAssistant
         context={editorContent}
         onSuggestionAccept={(suggestion) => {
           // TODO: Implement suggestion insertion

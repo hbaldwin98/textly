@@ -58,8 +58,21 @@
     document.body.style.userSelect = ""; // Restore text selection
   }
 
+  function toggleFullscreen() {
+    layoutStore.toggleFullscreen();
+    if (layoutState.isFullscreen) {
+      currentWidth = window.innerWidth;
+    } else {
+      handleWindowResize();
+    }
+  }
+
   // Handle window resize
   function handleWindowResize() {
+    if (layoutState.isFullscreen) {
+      currentWidth = window.innerWidth;
+      return;
+    }
     const windowWidth = window.innerWidth;
     if (layoutState.isMobile) {
       currentWidth = windowWidth; // Full width on mobile
@@ -135,7 +148,7 @@
       showSuggestionButton = true;
       // Switch to quick actions tab when context menu is used
       activeTab = "quick";
-      layoutStore.setAIPanelOpen(true);
+      layoutStore.setAIAssistantOpen(true);
     }
     // If no text is selected, let the native context menu show
   }
@@ -161,7 +174,7 @@
 <!-- Toggle Button -->
 <button
   class="fixed top-4 right-4 w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200/70 dark:hover:bg-zinc-700/70 text-gray-600 dark:text-gray-300 transition-colors backdrop-blur-sm"
-  onclick={() => layoutStore.toggleAIPanel()}
+  onclick={() => layoutStore.toggleAIAssistant()}
   title="AI Assistant"
   aria-label="AI Assistant"
 >
@@ -186,56 +199,95 @@
 
 <!-- Sidebar -->
 <div
-  class="fixed top-0 right-0 h-full bg-gray-50 dark:bg-zinc-950 border-l border-gray-200 dark:border-zinc-800 overflow-hidden transform z-50"
+  class="fixed top-0 right-0 h-full bg-gray-50 dark:bg-zinc-950 border-l border-gray-200 dark:border-zinc-800 overflow-hidden transform z-50 shadow-xl"
   class:transition-transform={!isResizing}
   class:duration-300={!isResizing}
   class:ease-in-out={!isResizing}
-  class:translate-x-0={layoutState.isAIPanelOpen}
-  class:translate-x-full={!layoutState.isAIPanelOpen}
+  class:translate-x-0={layoutState.isAIAssistantOpen}
+  class:translate-x-full={!layoutState.isAIAssistantOpen}
   class:z-40={layoutState.isSidebarOpen}
   class:z-50={!layoutState.isSidebarOpen}
-  class:w-full={layoutState.isMobile}
-  style="width: {layoutState.isMobile ? '100%' : currentWidth}px;"
+  class:w-full={layoutState.isMobile || layoutState.isFullscreen}
+  class:fullscreen={layoutState.isFullscreen}
+  style="width: {layoutState.isMobile || layoutState.isFullscreen ? '100%' : currentWidth}px;"
 >
   <!-- Resize Handle -->
-  <div
-    class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors select-none"
-    onmousedown={handleResizeStart}
-    aria-label="Resize handle"
-    role="button"
-    tabindex="0"
-  ></div>
+  {#if !layoutState.isFullscreen}
+    <div
+      class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors select-none"
+      onmousedown={handleResizeStart}
+      aria-label="Resize handle"
+      role="button"
+      tabindex="0"
+    ></div>
+  {/if}
 
   <div class="p-4 h-full flex flex-col">
     <!-- Header with tabs -->
     <div
       class="flex items-center justify-between mb-4 border-b border-gray-200 dark:border-zinc-800 pb-4"
+      class:max-w-3xl={layoutState.isFullscreen}
+      class:mx-auto={layoutState.isFullscreen}
+      class:w-full={layoutState.isFullscreen}
     >
       <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">
         AI Assistant
       </h2>
-      <button
-        class="text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-        onclick={() => layoutStore.toggleAIPanel()}
-        aria-label="Close"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-5 w-5"
-          viewBox="0 0 20 20"
-          fill="currentColor"
+      <div class="flex items-center gap-2">
+        <button
+          class="text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+          onclick={toggleFullscreen}
+          aria-label={layoutState.isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
         >
-          <path
-            fill-rule="evenodd"
-            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-            clip-rule="evenodd"
-          />
-        </svg>
-      </button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            {#if layoutState.isFullscreen}
+              <path
+                fill-rule="evenodd"
+                d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z"
+                clip-rule="evenodd"
+              />
+            {:else}
+              <path
+                fill-rule="evenodd"
+                d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z"
+                clip-rule="evenodd"
+              />
+            {/if}
+          </svg>
+        </button>
+        <button
+          class="text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+          onclick={() => layoutStore.toggleAIAssistant()}
+          aria-label="Close"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Tab Navigation -->
-    <div class="flex mb-4 bg-white dark:bg-zinc-900 rounded-lg p-1">
+    <div 
+      class="flex mb-4 bg-white dark:bg-zinc-900 rounded-lg p-1"
+      class:max-w-3xl={layoutState.isFullscreen}
+      class:mx-auto={layoutState.isFullscreen}
+      class:w-full={layoutState.isFullscreen}
+    >
       <button
         class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
         class:bg-gray-100={activeTab === "quick"}
@@ -277,13 +329,19 @@
     <!-- Tab Content -->
     <div class="flex-1 min-h-0">
       <div class="h-full" class:hidden={activeTab !== "quick"}>
-        <QuickActions {onSuggestionAccept} />
+        <div class="h-full" class:max-w-3xl={layoutState.isFullscreen} class:mx-auto={layoutState.isFullscreen} class:w-full={layoutState.isFullscreen}>
+          <QuickActions {onSuggestionAccept} />
+        </div>
       </div>
       <div class="h-full" class:hidden={activeTab !== "chat"}>
-        <ChatInterface />
+        <div class="h-full" class:max-w-3xl={layoutState.isFullscreen} class:mx-auto={layoutState.isFullscreen} class:w-full={layoutState.isFullscreen}>
+          <ChatInterface />
+        </div>
       </div>
       <div class="h-full" class:hidden={activeTab !== "settings"}>
-        <AISettings />
+        <div class="h-full" class:max-w-3xl={layoutState.isFullscreen} class:mx-auto={layoutState.isFullscreen} class:w-full={layoutState.isFullscreen}>
+          <AISettings />
+        </div>
       </div>
     </div>
   </div>

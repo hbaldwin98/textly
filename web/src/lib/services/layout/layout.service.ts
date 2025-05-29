@@ -12,22 +12,43 @@ export const BREAKPOINTS = {
 // Layout state
 interface LayoutState {
     isSidebarOpen: boolean;
-    isAIPanelOpen: boolean;
+    isAIAssistantOpen: boolean;
     windowWidth: number;
     isMobile: boolean;
     isTablet: boolean;
     isDesktop: boolean;
+    isFullscreen: boolean;
+}
+
+// Storage keys
+const STORAGE_KEYS = {
+    SIDEBAR_OPEN: 'textly-sidebar-open',
+    AI_ASSISTANT_OPEN: 'textly-ai-assistant-open',
+    FULLSCREEN: 'textly-fullscreen',
+} as const;
+
+// Helper functions for local storage
+function getStoredValue<T>(key: string, defaultValue: T): T {
+    if (typeof window === 'undefined') return defaultValue;
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : defaultValue;
+}
+
+function setStoredValue<T>(key: string, value: T): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(key, JSON.stringify(value));
 }
 
 // Create the store
 const createLayoutStore = () => {
     const { subscribe, set, update } = writable<LayoutState>({
-        isSidebarOpen: false,
-        isAIPanelOpen: false,
+        isSidebarOpen: getStoredValue(STORAGE_KEYS.SIDEBAR_OPEN, false),
+        isAIAssistantOpen: getStoredValue(STORAGE_KEYS.AI_ASSISTANT_OPEN, false),
         windowWidth: typeof window !== 'undefined' ? window.innerWidth : 1024,
         isMobile: false,
         isTablet: false,
         isDesktop: true,
+        isFullscreen: getStoredValue(STORAGE_KEYS.FULLSCREEN, false),
     });
 
     // Initialize window resize listener
@@ -49,8 +70,9 @@ const createLayoutStore = () => {
                 };
 
                 // On mobile, ensure only one panel is open
-                if (isMobile && state.isSidebarOpen && state.isAIPanelOpen) {
-                    newState.isAIPanelOpen = false;
+                if (isMobile && state.isSidebarOpen && state.isAIAssistantOpen) {
+                    newState.isAIAssistantOpen = false;
+                    setStoredValue(STORAGE_KEYS.AI_ASSISTANT_OPEN, false);
                 }
 
                 return newState;
@@ -69,40 +91,65 @@ const createLayoutStore = () => {
         set,
         update,
         toggleSidebar: () => update(state => {
+            const newState = !state.isSidebarOpen;
+            setStoredValue(STORAGE_KEYS.SIDEBAR_OPEN, newState);
             // If opening sidebar on mobile, close AI panel
-            if (!state.isSidebarOpen && state.isMobile && state.isAIPanelOpen) {
-                return { ...state, isSidebarOpen: true, isAIPanelOpen: false };
+            if (newState && state.isMobile && state.isAIAssistantOpen) {
+                setStoredValue(STORAGE_KEYS.AI_ASSISTANT_OPEN, false);
+                return { ...state, isSidebarOpen: newState, isAIAssistantOpen: false };
             }
-            return { ...state, isSidebarOpen: !state.isSidebarOpen };
+            return { ...state, isSidebarOpen: newState };
         }),
-        toggleAIPanel: () =>
+        toggleAIAssistant: () =>
             update((state) => {
+                const newState = !state.isAIAssistantOpen;
+                setStoredValue(STORAGE_KEYS.AI_ASSISTANT_OPEN, newState);
                 // If opening AI panel on mobile, close sidebar
-                if (!state.isAIPanelOpen && state.isMobile && state.isSidebarOpen) {
-                    return { ...state, isAIPanelOpen: true, isSidebarOpen: false };
+                if (newState && state.isMobile && state.isSidebarOpen) {
+                    setStoredValue(STORAGE_KEYS.SIDEBAR_OPEN, false);
+                    return { ...state, isAIAssistantOpen: newState, isSidebarOpen: false };
                 }
-                return { ...state, isAIPanelOpen: !state.isAIPanelOpen };
+                return { ...state, isAIAssistantOpen: newState };
             }),
         setSidebarOpen: (isOpen: boolean) =>
             update((state) => {
-                if (isOpen && state.isMobile && state.isAIPanelOpen) {
-                    return { ...state, isSidebarOpen: true, isAIPanelOpen: false };
+                setStoredValue(STORAGE_KEYS.SIDEBAR_OPEN, isOpen);
+                if (isOpen && state.isMobile && state.isAIAssistantOpen) {
+                    setStoredValue(STORAGE_KEYS.AI_ASSISTANT_OPEN, false);
+                    return { ...state, isSidebarOpen: isOpen, isAIAssistantOpen: false };
                 }
                 return { ...state, isSidebarOpen: isOpen };
             }),
-        setAIPanelOpen: (isOpen: boolean) =>
+        setAIAssistantOpen: (isOpen: boolean) =>
             update((state) => {
+                setStoredValue(STORAGE_KEYS.AI_ASSISTANT_OPEN, isOpen);
                 if (isOpen && state.isMobile && state.isSidebarOpen) {
-                    return { ...state, isAIPanelOpen: true, isSidebarOpen: false };
+                    setStoredValue(STORAGE_KEYS.SIDEBAR_OPEN, false);
+                    return { ...state, isAIAssistantOpen: isOpen, isSidebarOpen: false };
                 }
-                return { ...state, isAIPanelOpen: isOpen };
+                return { ...state, isAIAssistantOpen: isOpen };
+            }),
+        setFullscreen: (isFullscreen: boolean) =>
+            update((state) => {
+                setStoredValue(STORAGE_KEYS.FULLSCREEN, isFullscreen);
+                return { ...state, isFullscreen };
+            }),
+        toggleFullscreen: () =>
+            update((state) => {
+                const newState = !state.isFullscreen;
+                setStoredValue(STORAGE_KEYS.FULLSCREEN, newState);
+                return { ...state, isFullscreen: newState };
             }),
         closeAll: () =>
-            update((state) => ({
-                ...state,
-                isSidebarOpen: false,
-                isAIPanelOpen: false,
-            })),
+            update((state) => {
+                setStoredValue(STORAGE_KEYS.SIDEBAR_OPEN, false);
+                setStoredValue(STORAGE_KEYS.AI_ASSISTANT_OPEN, false);
+                return {
+                    ...state,
+                    isSidebarOpen: false,
+                    isAIAssistantOpen: false,
+                };
+            }),
     };
 };
 
@@ -113,4 +160,5 @@ export const isMobile = derived(layoutStore, $layout => $layout.isMobile);
 export const isTablet = derived(layoutStore, $layout => $layout.isTablet);
 export const isDesktop = derived(layoutStore, $layout => $layout.isDesktop);
 export const isSidebarOpen = derived(layoutStore, $layout => $layout.isSidebarOpen);
-export const isAIPanelOpen = derived(layoutStore, $layout => $layout.isAIPanelOpen); 
+export const isAIAssistantOpen = derived(layoutStore, $layout => $layout.isAIAssistantOpen);
+export const isFullscreen = derived(layoutStore, $layout => $layout.isFullscreen); 

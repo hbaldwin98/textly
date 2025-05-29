@@ -8,7 +8,7 @@
   import { DocumentManagerService } from "$lib/services/documents";
   import FolderTree from "$lib/components/FolderTree.svelte";
   import type { Document } from "$lib/services/documents/document.service";
-  import { layoutStore } from "$lib/services/layout/layout.service";
+  import { layoutStore, BREAKPOINTS } from "$lib/services/layout/layout.service";
 
   // Props
   interface Props {
@@ -182,33 +182,61 @@
   });
 </script>
 
-<!-- Sidebar Toggle Tab (subtle edge trigger) -->
+<!-- Sidebar Toggle Button/Tab -->
 {#if !layoutState.isSidebarOpen}
-  <button
-    class="fixed top-1/2 left-0 -translate-y-1/2 z-50 w-4 h-16 bg-gray-600 dark:bg-zinc-600 text-white rounded-r-sm shadow-sm hover:w-6 hover:bg-gray-700 dark:hover:bg-zinc-700 transition-all duration-300 flex items-center justify-center group opacity-20 hover:opacity-60"
-    onclick={toggleSidebar}
-    onmouseenter={handleMouseEnter}
-    title="Open Sidebar"
-    aria-label="Open Sidebar"
-  >
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 12 12"
-      fill="currentColor"
-      class="opacity-60 group-hover:opacity-100 transition-opacity duration-300"
+  {#if layoutState.windowWidth < BREAKPOINTS.xl}
+    <!-- Pull Tab for smaller screens -->
+    <button
+      class="fixed top-4 left-0 z-[100] w-4 h-8 bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200/70 dark:hover:bg-zinc-700/70 text-gray-600 dark:text-gray-300 transition-colors backdrop-blur-sm rounded-r-lg flex items-center justify-center"
+      onclick={toggleSidebar}
+      onmouseenter={handleMouseEnter}
+      title="Toggle Sidebar"
+      aria-label="Toggle Sidebar"
     >
-      <path d="M4.5 2L8 6l-3.5 4v-2.5H1v-3h3.5V2z" />
-    </svg>
-  </button>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M9 18l6-6-6-6" />
+      </svg>
+    </button>
+  {:else}
+    <!-- Full Button for larger screens -->
+    <button
+      class="fixed top-4 left-4 z-[100] w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200/70 dark:hover:bg-zinc-700/70 text-gray-600 dark:text-gray-300 transition-colors backdrop-blur-sm"
+      onclick={toggleSidebar}
+      onmouseenter={handleMouseEnter}
+      title="Toggle Sidebar"
+      aria-label="Toggle Sidebar"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
+      </svg>
+    </button>
+  {/if}
 {/if}
 
 <!-- Sidebar -->
 <div
   class="fixed top-0 left-0 h-full w-80 bg-gray-50 dark:bg-zinc-950 border-r border-gray-200 dark:border-zinc-800 shadow-xl z-40 transform transition-transform duration-300 ease-in-out flex flex-col
          {layoutState.isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}"
-  class:z-50={!layoutState.isAIPanelOpen}
-  class:z-40={layoutState.isAIPanelOpen}
+  class:z-50={!layoutState.isAIAssistantOpen}
+  class:z-40={layoutState.isAIAssistantOpen}
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
   role="navigation"
@@ -408,7 +436,7 @@
                 fill="currentColor"
               >
                 <path
-                  d="M11.93 8.5a4.02 4.02 0 0 1-7.86 0A4.02 4.02 0 0 1 8 4.5a4.02 4.02 0 0 1 3.93 4M8 5.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM14 2.5h-1v-1h-1v1H3v-1H2v1H1v1h1v11h1v1h9v-1h1v-1H3v-11h9v1h1v-1h1v-1z"
+                  d="M11.93 8.5a4.02 4.02 0 0 1-7.86 0A4.02 4.02 0 0 1 8 4.5a4.02 4.02 0 0 1 3.93 4M8 5.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM14 2.5h-1v-1h1v1zm0 11h-1v-1h1v1zm5-5.5v-1h-1v1h1zm-11 0v-1h-1v1h1z"
                 />
                 <path d="M8 7a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
               </svg>
