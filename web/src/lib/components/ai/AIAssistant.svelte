@@ -231,7 +231,7 @@
       class:w-full={layoutState.isFullscreen}
     >
       <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">
-        AI Assistant
+        Archibald - Assistant
       </h2>
       <div class="flex items-center gap-2">
         <button

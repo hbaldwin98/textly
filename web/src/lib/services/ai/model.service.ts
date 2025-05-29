@@ -8,6 +8,20 @@ export interface ModelCapabilities {
   standard: boolean;
 }
 
+// Server DTO interface
+interface AIModelDTO {
+  id: string;
+  identifier: string;
+  name: string;
+  description: string;
+  icon: string;
+  capabilities: string[];
+  provider: string;
+  default: boolean;
+  created: string;
+  updated: string;
+}
+
 export interface AIModel {
   id: string;
   name: string;
@@ -55,6 +69,26 @@ class ModelService {
 
   public getStore() {
     return this.store;
+  }
+
+  // Convert server DTO to client model
+  private convertDTOToModel(dto: AIModelDTO): AIModel {
+    // Convert string array capabilities to ModelCapabilities object
+    const capabilities: ModelCapabilities = {
+      reasoning: dto.capabilities.includes('reasoning'),
+      internet: dto.capabilities.includes('internet'),
+      standard: true // All models support standard chat
+    };
+
+    return {
+      id: dto.identifier, // Use identifier as the model ID
+      name: dto.name,
+      description: dto.description,
+      icon: dto.icon,
+      capabilities,
+      provider: dto.provider,
+      default: dto.default
+    };
   }
 
   public async loadModels(): Promise<void> {
@@ -116,8 +150,9 @@ class ModelService {
       throw new Error('Failed to load models from server');
     }
 
-    const config: ModelConfig = await response.json();
-    return config.models;
+    const data = await response.json();
+    // Convert DTOs to client models
+    return data.models.map((dto: AIModelDTO) => this.convertDTOToModel(dto));
   }
 
   private async loadModelsFromStatic(): Promise<AIModel[]> {

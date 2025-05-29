@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"textly/hooks"
+	"textly/queries"
 	"textly/routes"
 	"textly/services"
 
@@ -42,6 +43,10 @@ func InitializeApp() *pocketbase.PocketBase {
 func BindAppHooks(app core.App, loadCerts bool) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.GET("/", StatusHandler)
+
+		if err := queries.SeedDefaultModels(se); err != nil {
+			log.Printf("Failed to seed default models: %v", err)
+		}
 
 		routes.RegisterAuthRoutes(se)
 		routes.RegisterAIRoutes(se)
