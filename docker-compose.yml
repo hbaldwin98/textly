@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -23,7 +21,7 @@ services:
       context: ./web
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       - VITE_POCKETBASE_URL=${POCKETBASE_URL:-http://localhost:8080}
     depends_on:

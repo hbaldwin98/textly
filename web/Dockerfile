@@ -46,7 +46,7 @@ RUN chown -R sveltekit:nodejs /app
 USER sveltekit
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3001
 
 # Set environment variable for production
 ENV NODE_ENV=production
