@@ -38,6 +38,10 @@
   });
 </script>
 
+<svelte:head>
+  <title>Textly</title>
+</svelte:head>
+
 <div class="h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
   {@render children()}
 </div> 

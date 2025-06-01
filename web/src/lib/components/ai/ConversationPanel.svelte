@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { aiService, aiStore } from "$lib/services/ai";
+  import { aiService } from "$lib/services/ai/ai.service";
+  import { aiStore } from "$lib/services/ai/ai.store";
   import { layoutStore } from "$lib/services/layout/layout.service";
 
   // Props
@@ -9,13 +10,12 @@
   }>();
 
   // State
-  let aiState = $derived($aiStore);
   let layoutState = $derived($layoutStore);
 
-  function formatTimestamp(timestamp: number): string {
+  function formatTimestamp(timestamp: string): string {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffMs = now.getTime() - timestamp;
+    const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -133,14 +133,14 @@
     </div>
 
     <div class="flex-1 overflow-y-auto space-y-1">
-      {#each aiState.conversations as conversation}
+      {#each $aiStore.conversations as conversation}
         <div class="flex items-center gap-2 pr-2">
           <button
             class="flex-1 text-left text-xs p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors truncate min-w-0"
-            class:bg-blue-50={aiState.currentConversation?.id === conversation.id}
-            class:dark:bg-blue-950={aiState.currentConversation?.id === conversation.id}
-            class:text-blue-600={aiState.currentConversation?.id === conversation.id}
-            class:dark:text-blue-400={aiState.currentConversation?.id === conversation.id}
+            class:bg-blue-50={$aiStore.currentConversation?.id === conversation.id}
+            class:dark:bg-blue-950={$aiStore.currentConversation?.id === conversation.id}
+            class:text-blue-600={$aiStore.currentConversation?.id === conversation.id}
+            class:dark:text-blue-400={$aiStore.currentConversation?.id === conversation.id}
             onclick={() => loadConversation(conversation.id)}
             title={conversation.title}
           >
@@ -151,7 +151,7 @@
               <div
                 class="text-gray-500 dark:text-zinc-400 flex-shrink-0 text-right"
               >
-                {formatTimestamp(conversation.updatedAt)}
+                {formatTimestamp(conversation.updated)}
               </div>
             </div>
           </button>
@@ -185,7 +185,7 @@
         </div>
       {/each}
 
-      {#if aiState.conversations.length === 0}
+      {#if $aiStore.conversations.length === 0}
         <div
           class="text-xs text-gray-500 dark:text-zinc-400 text-center py-2"
         >

@@ -55,7 +55,6 @@
   let isHovering = $state(false);
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let isCommandPaletteOpen = $state(false);
-  let isEditingTitle = $state(false);
   let editingTitle = $state("");
 
   // Services
@@ -140,30 +139,6 @@
     goto("/auth");
   }
 
-  function startEditTitle() {
-    if (activeDocument) {
-      isEditingTitle = true;
-      editingTitle = activeDocument.title || "";
-    }
-  }
-
-  function cancelEditTitle() {
-    isEditingTitle = false;
-    editingTitle = "";
-  }
-
-  async function saveTitle() {
-    if (!editingTitle.trim() || !activeDocument || !documentManager) return;
-
-    try {
-      await documentManager.updateTitle(activeDocument.id, editingTitle.trim());
-      isEditingTitle = false;
-      editingTitle = "";
-    } catch (error) {
-      console.error("Failed to update title:", error);
-    }
-  }
-
   function handleDocumentSelect(document: Document) {
     if (!document.is_folder && documentManager) {
       documentManager.loadDocument(document.id);
@@ -173,6 +148,8 @@
   onMount(() => {
     documentManager = DocumentManagerService.getInstance();
     authService = AuthorizationService.getInstance();
+
+    authService.login
     
     return () => {
       if (timeoutId) {

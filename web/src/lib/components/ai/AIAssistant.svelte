@@ -5,7 +5,8 @@
   import ChatInterface from "./ChatInterface.svelte";
   import AISettings from "./AISettings.svelte";
   import { layoutStore } from "$lib/services/layout/layout.service";
-  import { aiService, aiStore } from "$lib/services/ai";
+  import { aiStore } from "$lib/services/ai/ai.store";
+  import { aiService } from "$lib/services/ai/ai.service";
 
   // Props
   interface Props {
@@ -23,7 +24,6 @@
 
   // Resize state
   const layoutState = $derived($layoutStore);
-  const aiState = $derived($aiStore);
   const maxWidth = $state(1200); // Maximum width
   let isResizing = $state(false);
   let startX = $state(0);

@@ -1,13 +1,14 @@
-import { writable } from 'svelte/store';
+import { writable, type Writable } from 'svelte/store';
 import { AuthorizationService } from '../authorization/authorization.service';
-import ConversationService, { type Conversation } from './conversation.service';
+import ConversationService, { type Conversation, type ConversationMessage } from './conversation.service';
 import { modelService } from './model.service';
+import { PocketBaseService } from '../pocketbase.service';
+import { aiStore } from './ai.store';
 
 export interface SuggestionHistory {
-  original: string;
-  suggestion: string;
+  type: 'improve' | 'explain' | 'chat';
+  text: string;
   timestamp: number;
-  type: 'improvement' | 'synonyms' | 'description';
 }
 
 export interface ChatMessage {
@@ -17,33 +18,44 @@ export interface ChatMessage {
   timestamp: number;
   thinking?: boolean;
   thinkingContent?: string;
+  user_message?: string;
+  response_message?: string;
+  model?: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  reasoning_tokens?: number;
+  cost?: number;
+  active?: boolean;
+  created?: string;
 }
 
 export interface ChatConversation {
   id: string;
   title: string;
+  type: string;
+  total_requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  cost: number;
   messages: ChatMessage[];
-  createdAt: number;
-  updatedAt: number;
+  created: string;
+  updated: string;
 }
 
-interface AIState {
+export interface AIState {
   suggestions: string[];
   isLoading: boolean;
   error: string | null;
   history: SuggestionHistory[];
-  // Chat state
-  currentConversation: ChatConversation | null;
-  conversations: ChatConversation[];
-  isChatLoading: boolean;
-  chatError: string | null;
-  // Quick Actions conversations from API
   improvementConversations: Conversation[];
   synonymsConversations: Conversation[];
   descriptionConversations: Conversation[];
   isLoadingQuickActions: boolean;
   quickActionsError: string | null;
-  // UI state
+  conversations: ChatConversation[];
+  currentConversation: ChatConversation | null;
+  isChatLoading: boolean;
+  chatError: string | null;
   lastConversationId: string | null;
   lastAITab: string;
 }
@@ -67,20 +79,28 @@ const defaultState: AIState = {
   lastAITab: typeof window !== 'undefined' ? localStorage.getItem('textly-last-ai-tab') || 'chat' : 'chat'
 };
 
-// Store for AI state
-export const aiStore = writable<AIState>(defaultState);
-
-// Note: storageStats removed as we no longer use localStorage
-
 class AIService {
   private static instance: AIService;
-  private store = aiStore;
+  private readonly authService = AuthorizationService.getInstance();
+  private readonly conversationService = ConversationService.getInstance();
   private readonly MAX_HISTORY = 10;
   private readonly MAX_CONVERSATIONS = 20;
   private currentAbortController: AbortController | null = null;
-  private conversationService = ConversationService.getInstance();
+  private pb = PocketBaseService.getInstance();
 
-  private constructor() { }
+  private constructor() {
+    // Initialize the store with default state
+    const savedState = typeof window !== 'undefined' ? localStorage.getItem('textly-ai-state') : null;
+    const initialState = savedState ? JSON.parse(savedState) : defaultState;
+    aiStore.set(initialState);
+
+    // Subscribe to store changes to persist state
+    aiStore.subscribe(state => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('textly-ai-state', JSON.stringify(state));
+      }
+    });
+  }
 
   public static getInstance(): AIService {
     if (!AIService.instance) {
@@ -90,7 +110,7 @@ class AIService {
   }
 
   private addToHistory(historyItem: SuggestionHistory): void {
-    this.store.update(state => ({
+    aiStore.update((state: AIState) => ({
       ...state,
       history: [historyItem, ...state.history.slice(0, this.MAX_HISTORY - 1)]
     }));
@@ -102,8 +122,6 @@ class AIService {
 
   // Load Quick Actions conversations from API
   public async loadQuickActionsConversations(): Promise<void> {
-    this.store.update(state => ({ ...state, isLoadingQuickActions: true, quickActionsError: null }));
-
     try {
       const [improvementConversations, synonymsConversations, descriptionConversations] = await Promise.all([
         this.conversationService.getConversations('improvement', true),
@@ -111,16 +129,18 @@ class AIService {
         this.conversationService.getConversations('description', true)
       ]);
 
-      this.store.update(state => ({
+      // Update store with all quick action conversations
+      aiStore.update(state => ({
         ...state,
         improvementConversations,
         synonymsConversations,
         descriptionConversations,
-        isLoadingQuickActions: false
+        isLoadingQuickActions: false,
+        quickActionsError: null
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load Quick Actions conversations';
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
         quickActionsError: errorMessage,
         isLoadingQuickActions: false
@@ -129,14 +149,18 @@ class AIService {
   }
 
   private async makeAIRequest(type: 'improvement' | 'synonyms' | 'description', text: string, context?: string) {
+    if (!this.authService.token) {
+      throw new Error('Authentication required for AI requests');
+    }
+
     try {
-      this.store.update(state => ({ ...state, isLoading: true, error: null }));
+      aiStore.update(state => ({ ...state, isLoading: true, error: null }));
 
       const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080'}/ai/assist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
+          'Authorization': `Bearer ${this.authService.token}`
         },
         body: JSON.stringify({
           type,
@@ -152,7 +176,7 @@ class AIService {
 
       const data = await response.json();
 
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
         suggestions: [data.suggestion],
         isLoading: false
@@ -160,10 +184,9 @@ class AIService {
 
       // Add to history with the correct type
       const historyItem: SuggestionHistory = {
-        original: text,
-        suggestion: data.suggestion,
-        timestamp: Date.now(),
-        type: type
+        type: type as 'improve' | 'explain' | 'chat',
+        text: text,
+        timestamp: Date.now()
       };
       this.addToHistory(historyItem);
 
@@ -173,7 +196,7 @@ class AIService {
       return data.suggestion;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : `Failed to get ${type}`;
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
         error: errorMessage,
         isLoading: false,
@@ -190,11 +213,11 @@ class AIService {
       this.currentAbortController = new AbortController();
       const signal = this.currentAbortController.signal;
 
-      this.store.update(state => ({ ...state, isChatLoading: true, chatError: null }));
+      aiStore.update(state => ({ ...state, isChatLoading: true, chatError: null }));
 
       // Get current state
       let currentState: AIState;
-      const unsubscribe = this.store.subscribe(state => {
+      const unsubscribe = aiStore.subscribe(state => {
         currentState = state;
       });
       unsubscribe();
@@ -230,11 +253,16 @@ class AIService {
         targetConversation = {
           id: this.generateId(), // Temporary ID
           title: message.slice(0, 50) + (message.length > 50 ? '...' : ''),
+          type: 'chat',
+          total_requests: 0,
+          input_tokens: 0,
+          output_tokens: 0,
+          cost: 0,
           messages: [],
-          createdAt: Date.now(),
-          updatedAt: Date.now()
+          created: new Date().toISOString(),
+          updated: new Date().toISOString()
         };
-        endpoint = '/conversations/start';
+        endpoint = '/conversations/create';
         requestBody = {
           message: message,
           title: targetConversation.title,
@@ -258,7 +286,7 @@ class AIService {
         updatedAt: Date.now()
       };
 
-      this.store.update(state => {
+      aiStore.update(state => {
         const updatedConversations = isNewConversation
           ? [conversationForUI, ...state.conversations.slice(0, this.MAX_CONVERSATIONS - 1)]
           : state.conversations.map(c => c.id === conversationForUI.id ? conversationForUI : c);
@@ -275,7 +303,7 @@ class AIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
+          'Authorization': `Bearer ${this.authService.token}`
         },
         body: JSON.stringify(requestBody),
         signal
@@ -302,7 +330,7 @@ class AIService {
       };
 
       // Update store with empty assistant message
-      this.store.update(state => {
+      aiStore.update(state => {
         const updatedConversations = state.conversations.map(c =>
           c.id === conversationForUI.id ? conversationForUI : c
         );
@@ -355,7 +383,7 @@ class AIService {
                         if (parsed.conversation_id && isNewConversation) {
                           realConversationId = parsed.conversation_id;
                           // Update the conversation ID in the store
-                          this.store.update(state => {
+                          aiStore.update(state => {
                             const updatedConversations = state.conversations.map(c =>
                               c.id === conversationForUI.id ? { ...c, id: realConversationId } : c
                             );
@@ -381,7 +409,7 @@ class AIService {
                         if (parsed.message_id) {
                           realMessageId = parsed.message_id;
                           // Update the user message ID with the real database ID
-                          this.store.update(state => {
+                          aiStore.update(state => {
                             const updatedConversations = state.conversations.map(c => {
                               if (c.id === conversationForUI.id) {
                                 const updatedMessages = c.messages.map(m => {
@@ -443,7 +471,7 @@ class AIService {
                           };
 
                           // Update store with thinking state
-                          this.store.update(state => {
+                          aiStore.update(state => {
                             const updatedConversations = state.conversations.map(c =>
                               c.id === updatedConversation.id ? updatedConversation : c
                             );
@@ -485,7 +513,7 @@ class AIService {
                           };
 
                           // Update store with thinking content
-                          this.store.update(state => {
+                          aiStore.update(state => {
                             const updatedConversations = state.conversations.map(c =>
                               c.id === updatedConversation.id ? updatedConversation : c
                             );
@@ -527,7 +555,7 @@ class AIService {
                       };
 
                       // Update store with streaming content
-                      this.store.update(state => {
+                      aiStore.update(state => {
                         const updatedConversations = state.conversations.map(c =>
                           c.id === updatedConversation.id ? updatedConversation : c
                         );
@@ -556,7 +584,7 @@ class AIService {
           // Update assistant message ID to use database-derived ID if we have the real message ID
           if (realMessageId) {
             const assistantMessageId = realMessageId + '_assistant';
-            this.store.update(state => {
+            aiStore.update(state => {
               const updatedConversations = state.conversations.map(c => {
                 if (c.id === conversationForUI.id) {
                   const updatedMessages = c.messages.map(m => {
@@ -582,7 +610,7 @@ class AIService {
               };
             });
           } else {
-            this.store.update(state => ({
+            aiStore.update(state => ({
               ...state,
               isChatLoading: false
             }));
@@ -598,7 +626,7 @@ class AIService {
       }
 
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
         chatError: errorMessage,
         isChatLoading: false
@@ -613,11 +641,11 @@ class AIService {
       this.currentAbortController = new AbortController();
       const signal = this.currentAbortController.signal;
 
-      this.store.update(state => ({ ...state, isChatLoading: true, chatError: null }));
+      aiStore.update(state => ({ ...state, isChatLoading: true, chatError: null }));
 
       // Get current state synchronously
       let currentState: AIState;
-      const unsubscribe = this.store.subscribe(state => {
+      const unsubscribe = aiStore.subscribe(state => {
         currentState = state;
       });
       unsubscribe();
@@ -656,7 +684,7 @@ class AIService {
       };
 
       // Update store immediately with edited message
-      this.store.update(state => {
+      aiStore.update(state => {
         const updatedConversations = state.conversations.map(c =>
           c.id === conversationId ? conversationForUI : c
         );
@@ -673,7 +701,7 @@ class AIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
+          'Authorization': `Bearer ${this.authService.token}`
         },
         body: JSON.stringify({
           conversation_id: conversationId,
@@ -706,7 +734,7 @@ class AIService {
       };
 
       // Update store with empty assistant message
-      this.store.update(state => {
+      aiStore.update(state => {
         const updatedConversations = state.conversations.map(c =>
           c.id === conversationForUI.id ? conversationForUI : c
         );
@@ -758,7 +786,7 @@ class AIService {
                         if (parsed.message_id) {
                           realMessageId = parsed.message_id;
                           // Update the edited user message ID with the real database ID
-                          this.store.update(state => {
+                          aiStore.update(state => {
                             const updatedConversations = state.conversations.map(c => {
                               if (c.id === conversationForUI.id) {
                                 const updatedMessages = c.messages.map(m => {
@@ -820,7 +848,7 @@ class AIService {
                           };
 
                           // Update store with thinking state
-                          this.store.update(state => {
+                          aiStore.update(state => {
                             const updatedConversations = state.conversations.map(c =>
                               c.id === updatedConversation.id ? updatedConversation : c
                             );
@@ -862,7 +890,7 @@ class AIService {
                           };
 
                           // Update store with thinking content
-                          this.store.update(state => {
+                          aiStore.update(state => {
                             const updatedConversations = state.conversations.map(c =>
                               c.id === updatedConversation.id ? updatedConversation : c
                             );
@@ -904,7 +932,7 @@ class AIService {
                       };
 
                       // Update store with streaming content
-                      this.store.update(state => {
+                      aiStore.update(state => {
                         const updatedConversations = state.conversations.map(c =>
                           c.id === updatedConversation.id ? updatedConversation : c
                         );
@@ -933,7 +961,7 @@ class AIService {
           // Update assistant message ID to use database-derived ID if we have the real message ID
           if (realMessageId) {
             const assistantMessageId = realMessageId + '_assistant';
-            this.store.update(state => {
+            aiStore.update(state => {
               const updatedConversations = state.conversations.map(c => {
                 if (c.id === conversationForUI.id) {
                   const updatedMessages = c.messages.map(m => {
@@ -959,7 +987,7 @@ class AIService {
               };
             });
           } else {
-            this.store.update(state => ({
+            aiStore.update(state => ({
               ...state,
               isChatLoading: false
             }));
@@ -975,7 +1003,7 @@ class AIService {
       }
 
       const errorMessage = err instanceof Error ? err.message : 'Failed to edit message';
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
         chatError: errorMessage,
         isChatLoading: false
@@ -986,48 +1014,89 @@ class AIService {
 
   public async loadConversationsFromBackend(): Promise<void> {
     try {
-      const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080'}/conversations/?type=chat`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
-        }
-      });
-
-      if (!response.ok) {
-        console.error('Failed to load conversations from backend');
-        return;
-      }
-
-      const backendConversations = await response.json();
-
-      // Convert backend conversations to frontend format
-      const conversations: ChatConversation[] = backendConversations?.map((conv: any) => ({
-        id: conv.id,
-        title: conv.title,
-        messages: [], // Messages will be loaded when conversation is opened
-        createdAt: new Date(conv.created).getTime(),
-        updatedAt: new Date(conv.updated).getTime()
+      const conversations = await this.conversationService.getConversations('chat', true);
+      const chatConversations: ChatConversation[] = conversations.map(c => ({
+        id: c.id,
+        title: c.title,
+        type: c.type,
+        total_requests: c.total_requests,
+        input_tokens: c.input_tokens,
+        output_tokens: c.output_tokens,
+        cost: c.cost,
+        messages: c.messages.flatMap(m => {
+          const messages: ChatMessage[] = [];
+          
+          // Add user message if present
+          if (m.user_message) {
+            messages.push({
+              id: m.id,
+              role: 'user',
+              content: m.user_message,
+              timestamp: new Date(m.created).getTime(),
+              user_message: m.user_message,
+              response_message: m.response_message,
+              model: m.model,
+              input_tokens: m.input_tokens,
+              output_tokens: m.output_tokens,
+              reasoning_tokens: m.reasoning_tokens,
+              cost: m.cost,
+              active: m.active,
+              created: m.created
+            });
+          }
+          
+          // Add assistant message if present
+          if (m.response_message) {
+            messages.push({
+              id: m.id + '_assistant',
+              role: 'assistant',
+              content: m.response_message,
+              timestamp: new Date(m.created).getTime(),
+              user_message: m.user_message,
+              response_message: m.response_message,
+              model: m.model,
+              input_tokens: m.input_tokens,
+              output_tokens: m.output_tokens,
+              reasoning_tokens: m.reasoning_tokens,
+              cost: m.cost,
+              active: m.active,
+              created: m.created
+            });
+          }
+          
+          return messages;
+        }),
+        created: c.created,
+        updated: c.updated
       }));
 
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
-        conversations: conversations
+        conversations: chatConversations
       }));
 
-      // After loading conversations, check if we need to load the last conversation
-      const lastConversationId = typeof window !== 'undefined' ? localStorage.getItem('textly-last-conversation-id') : null;
+      // Check if we have a last conversation ID and try to load it
+      const lastConversationId = localStorage.getItem('textly-last-conversation-id');
       if (lastConversationId) {
-        await this.loadConversation(lastConversationId);
+        const lastConversation = chatConversations.find(c => c.id === lastConversationId);
+        if (lastConversation) {
+          aiStore.update(state => ({
+            ...state,
+            currentConversation: lastConversation
+          }));
+        }
       }
-
     } catch (err) {
       console.error('Failed to load conversations:', err);
+      aiStore.update(state => ({
+        ...state,
+        chatError: err instanceof Error ? err.message : 'Failed to load conversations'
+      }));
     }
   }
 
   public createNewConversation(): void {
-    this.store.update(state => ({
+    aiStore.update(state => ({
       ...state,
       currentConversation: null
     }));
@@ -1037,7 +1106,7 @@ class AIService {
     try {
       // First check if we already have the conversation with messages
       let currentState: AIState;
-      const unsubscribe = this.store.subscribe(state => {
+      const unsubscribe = aiStore.subscribe(state => {
         currentState = state;
       });
       unsubscribe();
@@ -1045,7 +1114,7 @@ class AIService {
       const existingConversation = currentState!.conversations.find(c => c.id === conversationId);
       if (existingConversation && existingConversation.messages.length > 0 && !forceReload) {
         // We already have the messages, just set as current
-        this.store.update(state => ({
+        aiStore.update(state => ({
           ...state,
           currentConversation: existingConversation,
           lastConversationId: conversationId
@@ -1053,74 +1122,56 @@ class AIService {
         return;
       }
 
-      // Load full conversation from backend
-      const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8080'}/conversations/${conversationId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to load conversation');
-      }
-
-      const backendConversation = await response.json();
-
-      // Convert backend conversation to frontend format
-      const messages: ChatMessage[] = [];
-      for (const msg of backendConversation?.messages ?? []) {
-        if (msg.active) {
-          // Add user message with database message ID
-          messages.push({
-            id: msg.id, // Use the actual database ID
-            role: 'user',
-            content: msg.user_message,
-            timestamp: new Date(msg.created).getTime()
-          });
-
-          // Add assistant message with a derived ID
-          messages.push({
-            id: msg.id + '_assistant', // Derived ID for assistant response
-            role: 'assistant',
-            content: msg.response_message,
-            thinkingContent: msg.thinking_content || undefined,
-            timestamp: new Date(msg.created).getTime() + 1 // Slightly later timestamp
-          });
-        }
-      }
-
-      const conversation: ChatConversation = {
-        id: backendConversation?.id ?? '',
-        title: backendConversation?.title ?? '',
-        messages: messages,
-        createdAt: new Date(backendConversation?.created ?? '').getTime(),
-        updatedAt: new Date(backendConversation?.updated ?? '').getTime()
+      // Load the conversation from the backend
+      const conversation = await this.conversationService.getConversation(conversationId);
+      const chatConversation: ChatConversation = {
+        id: conversation.id,
+        title: conversation.title,
+        type: conversation.type,
+        total_requests: conversation.total_requests,
+        input_tokens: conversation.input_tokens,
+        output_tokens: conversation.output_tokens,
+        cost: conversation.cost,
+        messages: conversation.messages.map(m => ({
+          id: m.id,
+          role: m.user_message ? 'user' : 'assistant',
+          content: m.user_message || m.response_message || '',
+          timestamp: new Date(m.created).getTime(),
+          user_message: m.user_message,
+          response_message: m.response_message,
+          model: m.model,
+          input_tokens: m.input_tokens,
+          output_tokens: m.output_tokens,
+          reasoning_tokens: m.reasoning_tokens,
+          cost: m.cost,
+          active: m.active,
+          created: m.created
+        })),
+        created: conversation.created,
+        updated: conversation.updated
       };
 
-      this.store.update(state => {
+      aiStore.update(state => {
         // Update the conversation in the list with full messages
         const updatedConversations = state.conversations.map(c =>
-          c.id === conversationId ? conversation : c
+          c.id === chatConversation.id ? chatConversation : c
         );
+
+        // If the conversation wasn't in the list, add it
+        if (!updatedConversations.find(c => c.id === chatConversation.id)) {
+          updatedConversations.unshift(chatConversation);
+        }
 
         return {
           ...state,
-          currentConversation: conversation,
           conversations: updatedConversations,
+          currentConversation: chatConversation,
           lastConversationId: conversationId
         };
       });
-
-      // Update localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('textly-last-conversation-id', conversationId);
-      }
-
     } catch (err) {
       console.error('Failed to load conversation:', err);
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
         chatError: 'Failed to load conversation'
       }));
@@ -1134,7 +1185,7 @@ class AIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthorizationService.getInstance().token}`
+          'Authorization': `Bearer ${this.authService.token}`
         },
         body: JSON.stringify({
           conversation_id: conversationId
@@ -1147,7 +1198,7 @@ class AIService {
       }
 
       // Remove from local store only after successful API call
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
         conversations: state.conversations.filter(c => c.id !== conversationId),
         currentConversation: state.currentConversation?.id === conversationId ? null : state.currentConversation
@@ -1155,7 +1206,7 @@ class AIService {
 
     } catch (err) {
       console.error('Failed to deactivate conversation:', err);
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
         chatError: err instanceof Error ? err.message : 'Failed to deactivate conversation'
       }));
@@ -1230,34 +1281,34 @@ class AIService {
   }
 
   public clearError(): void {
-    this.store.update(state => ({
+    aiStore.update(state => ({
       ...state,
       error: null
     }));
   }
 
   public clearChatError(): void {
-    this.store.update(state => ({
+    aiStore.update(state => ({
       ...state,
       chatError: null
     }));
   }
 
   public clearSuggestions(): void {
-    this.store.update(state => ({
+    aiStore.update(state => ({
       ...state,
       suggestions: []
     }));
   }
 
   public getStore() {
-    return this.store;
+    return aiStore;
   }
 
   // Data management methods
   public clearStoredData(): void {
     // Reset store to default state
-    this.store.set({
+    aiStore.set({
       suggestions: [],
       isLoading: false,
       error: null,
@@ -1274,14 +1325,21 @@ class AIService {
       lastConversationId: null,
       lastAITab: 'quick'
     });
+
+    // Clear localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('textly-ai-state');
+      localStorage.removeItem('textly-last-conversation-id');
+      localStorage.removeItem('textly-last-ai-tab');
+    }
   }
 
   public clearQuickActionsError(): void {
-    this.store.update(state => ({ ...state, quickActionsError: null }));
+    aiStore.update(state => ({ ...state, quickActionsError: null }));
   }
 
   public updateConversationInList(updatedConversation: Conversation): void {
-    this.store.update(state => {
+    aiStore.update(state => {
       const conversations = [...state.conversations];
       const index = conversations.findIndex(c => c.id === updatedConversation.id);
 
@@ -1297,8 +1355,13 @@ class AIService {
             timestamp: new Date(m.created).getTime(),
             thinkingContent: m.thinking_content
           })),
-          createdAt: new Date(updatedConversation.created).getTime(),
-          updatedAt: new Date(updatedConversation.updated).getTime()
+          created: new Date(updatedConversation.created).toISOString(),
+          updated: new Date(updatedConversation.updated).toISOString(),
+          type: updatedConversation.type,
+          total_requests: updatedConversation.total_requests,
+          input_tokens: updatedConversation.input_tokens,
+          output_tokens: updatedConversation.output_tokens,
+          cost: updatedConversation.cost
         };
 
         conversations[index] = chatConversation;
@@ -1315,7 +1378,7 @@ class AIService {
       this.currentAbortController = null;
 
       // Update store to reflect stopped state
-      this.store.update(state => ({
+      aiStore.update(state => ({
         ...state,
         isChatLoading: false,
         chatError: 'Conversation stopped by user'
@@ -1328,7 +1391,7 @@ class AIService {
     if (typeof window !== 'undefined') {
       localStorage.setItem('textly-last-conversation-id', id || '');
     }
-    this.store.update(state => ({
+    aiStore.update(state => ({
       ...state,
       lastConversationId: id
     }));
@@ -1338,7 +1401,7 @@ class AIService {
     if (typeof window !== 'undefined') {
       localStorage.setItem('textly-last-ai-tab', tab);
     }
-    this.store.update(state => ({
+    aiStore.update(state => ({
       ...state,
       lastAITab: tab
     }));

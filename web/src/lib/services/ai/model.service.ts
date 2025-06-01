@@ -49,8 +49,10 @@ class ModelService {
   private store: Writable<ModelState>;
   private static readonly STORAGE_KEY_SELECTED_MODEL = 'textly_selected_model';
   private static readonly STORAGE_KEY_CAPABILITY_OVERRIDES = 'textly_capability_overrides';
+  private authService: AuthorizationService;
 
   private constructor() {
+    this.authService = AuthorizationService.getInstance();
     this.store = writable<ModelState>({
       availableModels: [],
       selectedModel: null,
@@ -94,6 +96,21 @@ class ModelService {
   public async loadModels(): Promise<void> {
     try {
       this.store.update(state => ({ ...state, isLoading: true, error: null }));
+
+      // Check authentication first
+      if (!this.authService.token) {
+        // If not authenticated, just load static models
+        const models = await this.loadModelsFromStatic();
+        const selectedModel = models.find(m => m.default) || models[0] || null;
+        
+        this.store.update(state => ({
+          ...state,
+          availableModels: models,
+          selectedModel: selectedModel,
+          isLoading: false
+        }));
+        return;
+      }
 
       // Try to load from server first
       let models: AIModel[] = [];

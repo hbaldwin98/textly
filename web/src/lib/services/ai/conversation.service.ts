@@ -70,6 +70,7 @@ class ConversationService {
     if (!ConversationService.instance) {
       ConversationService.instance = new ConversationService();
     }
+
     return ConversationService.instance;
   }
 
@@ -81,6 +82,10 @@ class ConversationService {
   }
 
   public async createConversation(request: CreateConversationRequest): Promise<CreateConversationResponse> {
+    if (!this.authService.user) {
+      throw new Error('User not authenticated');
+    }
+
     const response = await fetch(`${this.pb.baseUrl}/conversations/create`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
@@ -96,6 +101,10 @@ class ConversationService {
   }
 
   public async addMessage(request: AddMessageRequest): Promise<AddMessageResponse> {
+    if (!this.authService.user) {
+      throw new Error('User not authenticated');
+    }
+
     const response = await fetch(`${this.pb.baseUrl}/conversations/message`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
@@ -111,6 +120,10 @@ class ConversationService {
   }
 
   public async editMessage(request: EditMessageRequest): Promise<AddMessageResponse> {
+    if (!this.authService.user) {
+      throw new Error('User not authenticated');
+    }
+
     const response = await fetch(`${this.pb.baseUrl}/conversations/edit`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
@@ -126,6 +139,10 @@ class ConversationService {
   }
 
   public async getConversation(conversationId: string): Promise<Conversation> {
+    if (!this.authService.user) {
+      throw new Error('User not authenticated');
+    }
+
     const response = await fetch(`${this.pb.baseUrl}/conversations/${conversationId}`, {
       method: 'GET',
       headers: this.getAuthHeaders()
@@ -140,6 +157,10 @@ class ConversationService {
   }
 
   public async getConversations(type?: string, includeMessages?: boolean): Promise<Conversation[]> {
+    if (!this.authService.user) {
+      throw new Error('User not authenticated');
+    }
+
     const url = new URL(`${this.pb.baseUrl}/conversations/`);
     if (type) {
       url.searchParams.append('type', type);

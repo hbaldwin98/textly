@@ -18,6 +18,7 @@ export class PocketBaseService {
 
         this.pb.afterSend = (response: Response, data: any) => {
             this.connectionState = 'connected';
+            return data;
         };
 
         // Only initialize realtime features in browser environment

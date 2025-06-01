@@ -28,11 +28,14 @@ export class DocumentService {
     }
 
     private async initializeCache() {
-        if (!this.authService.user) return;
+        if (!this.authService.token) {
+            console.log('DocumentService: Not authenticated, skipping cache initialization');
+            return;
+        }
 
         try {
             const records = await this.pb.collection('documents').getFullList<Document>({
-                filter: `user = "${this.authService.user.id}"`,
+                filter: `user = "${this.authService.user?.id}"`,
                 sort: '-updated',
             });
             

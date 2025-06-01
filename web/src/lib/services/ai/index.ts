@@ -1,4 +1,5 @@
-export { aiService, aiStore } from './ai.service';
+export { aiService } from './ai.service';
+export { aiStore } from './ai.store';
 export type { 
   SuggestionHistory, 
   ChatMessage, 

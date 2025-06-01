@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { aiService, aiStore, type ChatMessage } from "$lib/services/ai";
+  import { aiService, type ChatMessage } from "$lib/services/ai/ai.service";
+  import { aiStore } from "$lib/services/ai/ai.store";
   import { onMount, onDestroy } from "svelte";
   import ModelSelector from "./ModelSelector.svelte";
   import ConversationService from "$lib/services/ai/conversation.service";
   import ChatBubble from "./ChatBubble.svelte";
   import ConversationPanel from "./ConversationPanel.svelte";
-
+  import { PocketBaseService } from "$lib/services/pocketbase.service";
   // State
   let messageInput = $state("");
   let chatContainer: HTMLElement;
@@ -14,6 +15,8 @@
   let editingElement: HTMLElement | null = $state(null);
   let activeMenuMessageId = $state<string | null>(null);
   let isConversationPanelVisible = $state(false);
+  let pbService = PocketBaseService.getInstance();
+  let pbUnsubscribe: (() => void) | null = null;
   let unsubscribe: (() => void) | null = null;
 
   let aiState = $derived($aiStore);
@@ -27,6 +30,12 @@
       hasInitialized = true;
       await aiService.loadConversation(aiState.lastConversationId);
     }
+
+    pbUnsubscribe = pbService.client.authStore.onChange(() => {
+      if (pbService.client.authStore.isValid) {
+        aiService.loadConversationsFromBackend();
+      }
+    });
 
     // Subscribe to conversation changes
     unsubscribe = ConversationService.getInstance().subscribeToConversations(
@@ -42,6 +51,10 @@
   onDestroy(() => {
     if (unsubscribe) {
       unsubscribe();
+    }
+
+    if (pbUnsubscribe) {
+      pbUnsubscribe();
     }
   });
 

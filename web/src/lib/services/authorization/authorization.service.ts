@@ -7,7 +7,7 @@ export class AuthorizationService {
     private readonly pb = PocketBaseService.getInstance().client;
 
     get token(): string { return this.pb.authStore.token; }
-    get user(): AuthRecord | null { return this.pb.authStore.model as AuthRecord | null; }
+    get user(): AuthRecord | null { return this.pb.authStore.record as AuthRecord | null; }
 
     private constructor() {
         this.updateReactiveStore();
@@ -25,11 +25,11 @@ export class AuthorizationService {
     }
 
     private updateReactiveStore() {
-        updateAuthState(this.pb.authStore.token, this.pb.authStore.model as AuthRecord | null);
+        updateAuthState(this.pb.authStore.token, this.pb.authStore.record as AuthRecord | null);
     }
 
     public async login(email: string, password: string): Promise<void> {
-        const authData = await this.pb.collection('users').authWithPassword(email, password);
+         await this.pb.collection('users').authWithPassword(email, password);
     }
 
     public async register(email: string, password: string): Promise<void> {

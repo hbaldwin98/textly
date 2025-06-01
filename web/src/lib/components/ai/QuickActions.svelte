@@ -1,15 +1,9 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import {
-    clipboardService,
-    clipboardStore,
-  } from "$lib/services/clipboard";
-  import {
-    aiService,
-    aiStore,
-    type SuggestionHistory,
-  } from "$lib/services/ai";
+  import { onMount } from "svelte";
+  import { clipboardService, clipboardStore } from "$lib/services/clipboard";
+  import { aiService } from "$lib/services/ai";
   import type { Conversation } from "$lib/services/ai/conversation.service";
+  import { aiStore } from "$lib/services/ai/ai.store";
 
   export let onSuggestionAccept: (suggestion: string) => void = () => {};
 
@@ -43,16 +37,18 @@
 
   // Function to get context from clipboard
   function getContext(): string {
-    return clipboardState.context || '';
+    return clipboardState.context || "";
   }
 
   // Function to get selected text from clipboard
   function getSelectedText(): string {
-    return clipboardState.selectedText || '';
+    return clipboardState.selectedText || "";
   }
 
   // Function to handle quick actions
-  async function handleQuickAction(type: 'improvement' | 'synonyms' | 'description') {
+  async function handleQuickAction(
+    type: "improvement" | "synonyms" | "description"
+  ) {
     const text = getSelectedText();
     const context = getContext();
 
@@ -61,13 +57,13 @@
     try {
       let suggestion: string;
       switch (type) {
-        case 'improvement':
+        case "improvement":
           suggestion = await aiService.getImprovement(text, context);
           break;
-        case 'synonyms':
+        case "synonyms":
           suggestion = await aiService.getSynonyms(text, context);
           break;
-        case 'description':
+        case "description":
           suggestion = await aiService.getDescription(text, context);
           break;
       }
@@ -92,26 +88,26 @@
   // Function to get conversation type color
   function getTypeColor(type: string): string {
     switch (type) {
-      case 'improvement':
-        return 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300';
-      case 'synonyms':
-        return 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300';
-      case 'description':
-        return 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300';
+      case "improvement":
+        return "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300";
+      case "synonyms":
+        return "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300";
+      case "description":
+        return "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300";
       default:
-        return 'bg-gray-50 text-gray-600 dark:bg-gray-900/30 dark:text-gray-300';
+        return "bg-gray-50 text-gray-600 dark:bg-gray-900/30 dark:text-gray-300";
     }
   }
 
   // Function to get conversation type label
   function getTypeLabel(type: string): string {
     switch (type) {
-      case 'improvement':
-        return 'Improvement';
-      case 'synonyms':
-        return 'Synonyms';
-      case 'description':
-        return 'Description';
+      case "improvement":
+        return "Improvement";
+      case "synonyms":
+        return "Synonyms";
+      case "description":
+        return "Description";
       default:
         return type;
     }
@@ -119,17 +115,26 @@
 
   function getLatestResponse(conversation: Conversation): string {
     if (conversation.messages && conversation.messages.length > 0) {
-      const lastMessage = conversation.messages[conversation.messages.length - 1];
+      const lastMessage =
+        conversation.messages[conversation.messages.length - 1];
       return lastMessage.response_message;
     }
-    return '';
+    return "";
   }
 
   $: allConversations = [
-    ...aiState.improvementConversations.map(c => ({ ...c, type: 'improvement' })),
-    ...aiState.synonymsConversations.map(c => ({ ...c, type: 'synonyms' })),
-    ...aiState.descriptionConversations.map(c => ({ ...c, type: 'description' }))
-  ].sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
+    ...aiState.improvementConversations.map((c) => ({
+      ...c,
+      type: "improvement",
+    })),
+    ...aiState.synonymsConversations.map((c) => ({ ...c, type: "synonyms" })),
+    ...aiState.descriptionConversations.map((c) => ({
+      ...c,
+      type: "description",
+    })),
+  ].sort(
+    (a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime()
+  );
 </script>
 
 <div class="h-full overflow-y-auto overflow-x-hidden">
@@ -215,7 +220,9 @@
                     {formatTimestamp(item.timestamp)}
                   </div>
                   <div
-                    class="text-xs px-2 py-1 rounded-full {getTypeColor(item.type)}"
+                    class="text-xs px-2 py-1 rounded-full {getTypeColor(
+                      item.type
+                    )}"
                   >
                     {getTypeLabel(item.type)}
                   </div>
@@ -223,9 +230,9 @@
                 <div class="group relative">
                   <button
                     class="w-full text-left p-2 bg-blue-50 dark:bg-blue-900/20 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-gray-900 dark:text-zinc-100"
-                    on:click={() => onSuggestionAccept(item.suggestion)}
+                    on:click={() => onSuggestionAccept(item.text)}
                   >
-                    {item.suggestion}
+                    {item.text}
                   </button>
                 </div>
               </div>
@@ -250,7 +257,9 @@
                     {formatConversationDate(conversation.updated)}
                   </div>
                   <div
-                    class="text-xs px-2 py-1 rounded-full {getTypeColor(conversation.type)}"
+                    class="text-xs px-2 py-1 rounded-full {getTypeColor(
+                      conversation.type
+                    )}"
                   >
                     {getTypeLabel(conversation.type)}
                   </div>
@@ -263,7 +272,8 @@
                 <div class="group relative">
                   <button
                     class="w-full text-left p-2 bg-blue-50 dark:bg-blue-900/20 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-gray-900 dark:text-zinc-100"
-                    on:click={() => onSuggestionAccept(getLatestResponse(conversation))}
+                    on:click={() =>
+                      onSuggestionAccept(getLatestResponse(conversation))}
                   >
                     {getLatestResponse(conversation)}
                   </button>
@@ -275,4 +285,4 @@
       </div>
     {/if}
   </div>
-</div> 
+</div>

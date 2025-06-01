@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { aiService, aiStore } from "$lib/services/ai";
+  import { aiService } from "$lib/services/ai/ai.service";
+  import { aiStore } from "$lib/services/ai/ai.store";
 
-  $: aiState = $aiStore;
   let showConfirmClear = false;
 
   function confirmClear() {
@@ -26,13 +26,13 @@
       <div>
         <span class="text-gray-600 dark:text-zinc-400">Chat Conversations:</span>
         <span class="font-medium text-gray-900 dark:text-zinc-100 ml-1">
-          {aiState.conversations.length}
+          {$aiStore.conversations.length}
         </span>
       </div>
       <div>
         <span class="text-gray-600 dark:text-zinc-400">Recent Suggestions:</span>
         <span class="font-medium text-gray-900 dark:text-zinc-100 ml-1">
-          {aiState.history.length}
+          {$aiStore.history.length}
         </span>
       </div>
     </div>
@@ -40,19 +40,19 @@
       <div>
         <span class="text-gray-600 dark:text-zinc-400">Improvements:</span>
         <span class="font-medium text-gray-900 dark:text-zinc-100 ml-1">
-          {aiState.improvementConversations.length}
+          {$aiStore.improvementConversations.length}
         </span>
       </div>
       <div>
         <span class="text-gray-600 dark:text-zinc-400">Synonyms:</span>
         <span class="font-medium text-gray-900 dark:text-zinc-100 ml-1">
-          {aiState.synonymsConversations.length}
+          {$aiStore.synonymsConversations.length}
         </span>
       </div>
       <div>
         <span class="text-gray-600 dark:text-zinc-400">Descriptions:</span>
         <span class="font-medium text-gray-900 dark:text-zinc-100 ml-1">
-          {aiState.descriptionConversations.length}
+          {$aiStore.descriptionConversations.length}
         </span>
       </div>
     </div>
