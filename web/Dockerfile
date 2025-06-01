@@ -17,10 +17,6 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Set build-time environment variables
-ARG VITE_POCKETBASE_URL=http://localhost:8080
-ENV VITE_POCKETBASE_URL=$VITE_POCKETBASE_URL
-
 # Build the application
 RUN npm run build
 

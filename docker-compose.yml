@@ -12,10 +12,11 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL}
       - OPENAI_BASE_MODEL=${OPENAI_BASE_MODEL}
     volumes:
-      - ./server/pb_data:/root/pb_data
+      - ${PB_DATA_VOLUME:-./server/pb_data}:/root/pb_data
       - ./server/migrations:/root/pb_migrations
     networks:
       - textly-network
+    restart: ${RESTART_POLICY:-no}
 
   frontend:
     build:
@@ -24,15 +25,17 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VITE_POCKETBASE_URL=http://backend:8080
+      - VITE_POCKETBASE_URL=${POCKETBASE_URL:-http://localhost:8080}
     depends_on:
       - backend
     networks:
       - textly-network
+    restart: ${RESTART_POLICY:-no}
 
 networks:
   textly-network:
     driver: bridge
 
 volumes:
-  pb_data: 
+  pb_data:
+    name: ${PB_DATA_VOLUME_NAME:-textly_pb_data} 
