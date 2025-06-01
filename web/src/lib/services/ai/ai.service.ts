@@ -262,7 +262,7 @@ class AIService {
           created: new Date().toISOString(),
           updated: new Date().toISOString()
         };
-        endpoint = '/conversations/create';
+        endpoint = '/conversations/start';
         requestBody = {
           message: message,
           title: targetConversation.title,

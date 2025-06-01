@@ -1,5 +1,6 @@
 import { AuthorizationService } from '../authorization/authorization.service';
 import { PocketBaseService } from '../pocketbase.service';
+import { env } from '$env/dynamic/public';
 
 export interface ConversationMessage {
   id: string;
@@ -86,7 +87,7 @@ class ConversationService {
       throw new Error('User not authenticated');
     }
 
-    const response = await fetch(`${this.pb.baseUrl}/conversations/create`, {
+    const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}/conversations/start`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(request)
@@ -105,7 +106,7 @@ class ConversationService {
       throw new Error('User not authenticated');
     }
 
-    const response = await fetch(`${this.pb.baseUrl}/conversations/message`, {
+    const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}/conversations/message`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(request)
@@ -124,7 +125,7 @@ class ConversationService {
       throw new Error('User not authenticated');
     }
 
-    const response = await fetch(`${this.pb.baseUrl}/conversations/edit`, {
+    const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}/conversations/edit`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(request)
@@ -143,7 +144,7 @@ class ConversationService {
       throw new Error('User not authenticated');
     }
 
-    const response = await fetch(`${this.pb.baseUrl}/conversations/${conversationId}`, {
+    const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}/conversations/${conversationId}`, {
       method: 'GET',
       headers: this.getAuthHeaders()
     });
@@ -161,7 +162,7 @@ class ConversationService {
       throw new Error('User not authenticated');
     }
 
-    const url = new URL(`${this.pb.baseUrl}/conversations/`);
+    const url = new URL(`${env.PUBLIC_POCKETBASE_URL}/conversations/`);
     if (type) {
       url.searchParams.append('type', type);
     }
