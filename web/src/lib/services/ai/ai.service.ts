@@ -3,7 +3,7 @@ import ConversationService, { type Conversation, type ConversationMessage } from
 import { modelService } from './model.service';
 import { PocketBaseService } from '../pocketbase.service';
 import { aiStore } from './ai.store';
-import { VITE_POCKETBASE_URL } from '$env/static/private';
+import { env } from '$env/dynamic/public';
 
 export interface SuggestionHistory {
   type: 'improve' | 'explain' | 'chat';
@@ -156,7 +156,7 @@ class AIService {
     try {
       aiStore.update(state => ({ ...state, isLoading: true, error: null }));
 
-      const response = await fetch(`${VITE_POCKETBASE_URL}/ai/assist`, {
+      const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}/ai/assist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -299,7 +299,7 @@ class AIService {
       });
 
       // Use streaming conversation endpoint
-        const response = await fetch(`${VITE_POCKETBASE_URL}${endpoint}`, {
+      const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -697,7 +697,7 @@ class AIService {
       });
 
       // Use streaming edit endpoint
-      const response = await fetch(`${VITE_POCKETBASE_URL}/conversations/edit`, {
+      const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}/conversations/edit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1181,7 +1181,7 @@ class AIService {
   public async deleteConversation(conversationId: string): Promise<void> {
     try {
       // Call the deactivate endpoint
-      const response = await fetch(`${VITE_POCKETBASE_URL}/conversations/deactivate`, {
+      const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}/conversations/deactivate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -23,7 +23,7 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - VITE_POCKETBASE_URL=${POCKETBASE_URL:-http://localhost:8080}
+      - PUBLIC_POCKETBASE_URL=${POCKETBASE_URL:-http://localhost:8080}
       - PORT=${PORT:-3001}
     depends_on:
       - backend

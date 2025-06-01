@@ -1,7 +1,7 @@
 import { writable, type Writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { AuthorizationService } from '../authorization/authorization.service';
-import { VITE_POCKETBASE_URL } from '$env/static/private';
+import { env } from '$env/dynamic/public';
 
 export interface ModelCapabilities {
   reasoning: boolean;
@@ -156,7 +156,7 @@ class ModelService {
   }
 
   private async loadModelsFromServer(): Promise<AIModel[]> {
-    const response = await fetch(`${VITE_POCKETBASE_URL}/ai/models`, {
+    const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}/ai/models`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

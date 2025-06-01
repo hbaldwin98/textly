@@ -18,7 +18,7 @@ This guide explains how to deploy your Textly application using Docker on variou
    ```bash
    OPENAI_API_KEY=your_actual_openai_api_key
    OPENAI_BASE_URL=https://api.openai.com/v1
-   VITE_POCKETBASE_URL=http://localhost:8080
+   PUBLIC_POCKETBASE_URL=http://localhost:8080
    ```
 
 3. **Run with Docker Compose:**
@@ -67,7 +67,7 @@ This guide explains how to deploy your Textly application using Docker on variou
    fly launch --dockerfile Dockerfile --name textly-frontend
    
    # Set backend URL (replace with your backend URL)
-   fly secrets set VITE_POCKETBASE_URL=https://textly-backend.fly.dev
+   fly secrets set PUBLIC_POCKETBASE_URL=https://textly-backend.fly.dev
    ```
 
 ### Option 2: Railway
@@ -120,7 +120,7 @@ You can deploy to any platform that supports Docker by:
 - `OPENAI_BASE_URL`: OpenAI API base URL (usually https://api.openai.com/v1)
 
 ### Frontend (SvelteKit)
-- `VITE_POCKETBASE_URL`: URL of your deployed backend
+- `PUBLIC_POCKETBASE_URL`: URL of your deployed backend
 
 ## Database Persistence
 

@@ -1,7 +1,7 @@
 import PocketBase, { type RecordModel } from 'pocketbase';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { PocketBaseService } from '../pocketbase.service';
-import { VITE_POCKETBASE_URL } from '$env/static/private';
+import { env } from '$env/dynamic/public';
 
 export interface Document extends RecordModel {
     id: string;
@@ -24,7 +24,7 @@ export class DocumentService {
     private unsubscribeFromCache: (() => void) | null = null;
 
     private constructor() {
-        this.pb = new PocketBase(VITE_POCKETBASE_URL || 'http://localhost:8080');
+        this.pb = new PocketBase(env.PUBLIC_POCKETBASE_URL || 'http://localhost:8080');
         this.authService = AuthorizationService.getInstance();
     }
 

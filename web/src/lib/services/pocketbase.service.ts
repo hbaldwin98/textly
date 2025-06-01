@@ -1,5 +1,5 @@
 import PocketBase, { type SendOptions, type BeforeSendResult } from 'pocketbase';
-import { VITE_POCKETBASE_URL } from '$env/static/private';
+import { env } from '$env/dynamic/public';
 
 export class PocketBaseService {
     private static instance: PocketBaseService;
@@ -8,7 +8,7 @@ export class PocketBaseService {
     private isBrowser: boolean;
 
     private constructor() {
-        this.pb = new PocketBase(VITE_POCKETBASE_URL || 'http://localhost:8080');
+        this.pb = new PocketBase(env.PUBLIC_POCKETBASE_URL || 'http://localhost:8080');
         this.isBrowser = typeof window !== 'undefined';
         
         // Listen for connection state changes
