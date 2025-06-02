@@ -7,6 +7,7 @@
   import { layoutStore } from "$lib/services/layout/layout.service";
   import { aiStore } from "$lib/services/ai/ai.store";
   import { aiService } from "$lib/services/ai/ai.service";
+  import { contextMenu } from "$lib/stores/context-menu.store";
 
   // Props
   interface Props {
@@ -34,6 +35,21 @@
   // Update active tab in store when it changes
   $effect(() => {
     aiService.setLastAITab(activeTab);
+  });
+
+  // Subscribe to context menu store
+  $effect(() => {
+    const menuState = $contextMenu;
+    if (menuState.visible && menuState.type === 'ai') {
+      showSuggestionButton = true;
+      selectedText = menuState.data?.selectedText || "";
+      buttonPosition = {
+        x: menuState.x,
+        y: menuState.y
+      };
+    } else {
+      showSuggestionButton = false;
+    }
   });
 
   function handleResizeStart(event: MouseEvent) {
@@ -121,61 +137,90 @@
     const selection = window.getSelection();
     if (selection && selection.toString().trim()) {
       selectedText = selection.toString().trim();
+      showSuggestionButton = false;
     } else {
       selectedText = "";
       showSuggestionButton = false;
     }
   }
 
+  // Function to handle click outside
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as Element;
+    const isContextMenu = target.closest('.context-menu');
+    if (!isContextMenu && showSuggestionButton) {
+      showSuggestionButton = false;
+      contextMenu.hide();
+    }
+  }
+
+  // Handle AI actions from context menu
+  async function handleAIAction(action: 'improve' | 'synonyms' | 'describe', text: string, context: string) {
+    try {
+      let result;
+      switch (action) {
+        case 'improve':
+          result = await aiService.getImprovement(text, context);
+          break;
+        case 'synonyms':
+          result = await aiService.getSynonyms(text, context);
+          break;
+        case 'describe':
+          result = await aiService.getDescription(text, context);
+          break;
+      }
+    } catch (err) {
+      console.error(`Failed to handle AI action ${action}:`, err);
+    }
+  }
+
   // Function to handle context menu
   function handleContextMenu(event: MouseEvent) {
-    // Check if the event is within an editor area
     const target = event.target as Element;
     const isInEditor = target.closest(
       ".milkdown-immersive, .cm-editor, .cm-content"
     );
 
-    if (!isInEditor) return; // Let non-editor context menus proceed normally
+    if (!isInEditor) return;
 
     const selection = window.getSelection();
     if (selection && selection.toString().trim()) {
-      event.preventDefault(); // Only prevent default when text is selected
+      event.preventDefault();
       selectedText = selection.toString().trim();
 
-      // Get the selection's bounding rectangle
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
 
-      // Position the menu to the left of the selection
       buttonPosition = {
-        x: rect.left - 10, // 10px to the left of the selection
-        y: rect.top - 10, // 10px above the selection
+        x: rect.left - 10,
+        y: rect.top - 10,
       };
 
       showSuggestionButton = true;
-      // Switch to quick actions tab when context menu is used
       activeTab = "quick";
-      layoutStore.setAIAssistantOpen(true);
-    }
-    // If no text is selected, let the native context menu show
-  }
-
-  // Function to hide suggestion button when clicking outside
-  function handleClickOutside(_: MouseEvent) {
-    if (showSuggestionButton) {
-      showSuggestionButton = false;
+      
+      contextMenu.show("ai", buttonPosition.x, buttonPosition.y, null, {
+        selectedText,
+        context
+      });
     }
   }
 </script>
 
 <!-- Floating Suggestion Button -->
-{#if showSuggestionButton && selectedText}
-  <ContextMenu
-    {selectedText}
-    {buttonPosition}
-    {context}
-    onClose={() => (showSuggestionButton = false)}
-  />
+{#if $contextMenu.visible && $contextMenu.type === 'ai' && selectedText}
+  <div class="context-menu" style="position: fixed; z-index: 9999;">
+    <ContextMenu
+      {selectedText}
+      buttonPosition={$contextMenu}
+      {context}
+      onClose={() => {
+        showSuggestionButton = false;
+        contextMenu.hide();
+      }}
+      onAIAction={handleAIAction}
+    />
+  </div>
 {/if}
 
 <!-- Toggle Button -->

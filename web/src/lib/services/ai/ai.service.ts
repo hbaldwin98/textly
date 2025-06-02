@@ -156,21 +156,24 @@ class AIService {
     try {
       aiStore.update(state => ({ ...state, isLoading: true, error: null }));
 
+      const requestBody = {
+        type,
+        text,
+        context
+      };
+
       const response = await fetch(`${env.PUBLIC_POCKETBASE_URL}/ai/assist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.authService.token}`
         },
-        body: JSON.stringify({
-          type,
-          text,
-          context
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("Error response:", errorData);
         throw new Error(errorData.error || `Failed to get ${type}`);
       }
 
@@ -195,6 +198,7 @@ class AIService {
 
       return data.suggestion;
     } catch (err) {
+      console.error("Error in makeAIRequest:", err);
       const errorMessage = err instanceof Error ? err.message : `Failed to get ${type}`;
       aiStore.update(state => ({
         ...state,

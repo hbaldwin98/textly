@@ -2,12 +2,6 @@
   import { onMount, createEventDispatcher } from "svelte";
   import { DocumentService, type Document } from "$lib/services/documents";
   import { DocumentManagerService } from "$lib/services/documents";
-  import {
-    documents,
-    isLoading,
-    error,
-    documentActions,
-  } from "$lib/stores/document.store";
   import { authStore } from "$lib/stores/auth.store";
 
   interface Props {
@@ -24,16 +18,17 @@
   let searchInput = $state<HTMLInputElement>();
   let resultsContainer = $state<HTMLDivElement>();
   let isCreating = $state(false);
+  let localDocuments = $state<Document[]>([]);
+  let isLoadingLocal = $state(false);
+  let loadPromise: Promise<void> | null = null;
 
   // Reactive values
   let authState = $derived($authStore);
   let isLoggedIn = $derived(authState.isLoggedIn);
-  let documentList = $derived($documents);
-  let loading = $derived($isLoading);
 
   // Filtered documents based on search (only title)
   let filteredDocuments = $derived(
-    documentList.filter((doc) =>
+    localDocuments.filter((doc) =>
       !doc.is_folder && doc.title.toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
@@ -56,6 +51,8 @@
     searchTerm = "";
     selectedIndex = 0;
     isCreating = false;
+    localDocuments = [];
+    loadPromise = null;
   }
 
   async function handleDocumentSelect(document: Document) {
@@ -66,9 +63,8 @@
       dispatch("select", document);
       handleClose();
     } catch (err) {
-      documentActions.setError(
-        err instanceof Error ? err.message : "Failed to load document"
-      );
+      console.error('Failed to load document:', err);
+      dispatch("error", err instanceof Error ? err.message : "Failed to load document");
     }
   }
 
@@ -78,32 +74,49 @@
     try {
       isCreating = true;
       const newDoc = await documentManager.createDocument(createOptionTitle);
-      // DocumentManager already adds the document to the store, so we don't need to do it manually
       dispatch("select", newDoc);
       handleClose();
     } catch (err) {
-      documentActions.setError(
-        err instanceof Error ? err.message : "Failed to create document"
-      );
+      console.error('Failed to create document:', err);
+      dispatch("error", err instanceof Error ? err.message : "Failed to create document");
     } finally {
       isCreating = false;
     }
   }
 
   async function loadDocumentTitles() {
-    if (!documentService) return;
-    try {
-      documentActions.setLoading(true);
-      const docs = await documentService.getDocumentTitles();
-      // Cast to full Document type since the UI only needs title and dates
-      documentActions.setDocuments(docs as Document[]);
-    } catch (err) {
-      documentActions.setError(
-        err instanceof Error ? err.message : "Failed to load documents"
-      );
-    } finally {
-      documentActions.setLoading(false);
+    if (!documentService || !isLoggedIn) return;
+    
+    // Prevent multiple simultaneous loads
+    if (loadPromise) {
+      return loadPromise;
     }
+
+    loadPromise = (async () => {
+      try {
+        isLoadingLocal = true;
+        const docs = await documentService.getDocumentTitles();
+        if (docs) {
+          // Convert the minimal document type to full Document type
+          const fullDocs = docs.map(doc => ({
+            ...doc,
+            content: '',
+            collectionId: '',
+            collectionName: 'documents'
+          })) as Document[];
+          localDocuments = fullDocs;
+        }
+      } catch (err) {
+        console.error('Failed to load documents:', err);
+        dispatch("error", err instanceof Error ? err.message : "Failed to load documents");
+        localDocuments = [];
+      } finally {
+        isLoadingLocal = false;
+        loadPromise = null;
+      }
+    })();
+
+    return loadPromise;
   }
 
   function formatDate(dateString: string): string {
@@ -150,13 +163,20 @@
     if (isOpen && searchInput) {
       searchInput.focus();
       selectedIndex = 0;
+      // Load documents when palette opens
+      if (isLoggedIn) {
+        loadDocumentTitles().catch(err => {
+          console.error('Failed to load documents:', err);
+          dispatch("error", err instanceof Error ? err.message : "Failed to load documents");
+        });
+      }
     }
   });
 
-  // Load documents when palette opens and user is logged in
+  // Reset state when palette closes
   $effect(() => {
-    if (isOpen && isLoggedIn) {
-      loadDocumentTitles();
+    if (!isOpen) {
+      resetState();
     }
   });
 
@@ -200,13 +220,6 @@
 
     document.addEventListener("keydown", handleKeydown);
     return () => document.removeEventListener("keydown", handleKeydown);
-  });
-
-  // Reset selection when search changes
-  $effect(() => {
-    // Only reset when search term changes, not when other reactive values change
-    searchTerm;
-    selectedIndex = 0;
   });
 </script>
 
@@ -262,7 +275,7 @@
             Please sign in to access your documents.
           </p>
         </div>
-      {:else if loading}
+      {:else if isLoadingLocal}
         <div class="p-6 text-center">
           <div
             class="w-6 h-6 mx-auto rounded-full border-2 border-blue-600 dark:border-blue-400 border-t-transparent animate-spin"
@@ -351,7 +364,7 @@
     </div>
 
     <!-- Create New Document Option (Always Visible) -->
-    {#if isLoggedIn && !loading}
+    {#if isLoggedIn && !isLoadingLocal}
       <div class="border-t border-gray-200 dark:border-zinc-700">
         <button
           data-index={filteredDocuments.length}

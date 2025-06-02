@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Svelte Rules:
+
+1. Always use $effect or $derived instead of the old rune syntax $:
+2. Never use createEventDispatcher, instead use import/export or props.
+3. Use onclick, ontouch, etc. instead of on:click, on:touch.
+4. Use $state(...) for reactive updates
+

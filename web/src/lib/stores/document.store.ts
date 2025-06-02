@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import type { Document } from '$lib/services/documents';
+import type { Document } from '$lib/services/documents/document.service';
 
 interface DocumentState {
     documents: Document[];
@@ -38,15 +38,14 @@ export const documentActions = {
 
     // Set documents list
     setDocuments: (documents: Document[]) => {
-        documentStore.update(state => ({ ...state, documents, error: null }));
+        documentStore.update(state => ({ ...state, documents }));
     },
 
     // Add a new document to the list
     addDocument: (document: Document) => {
         documentStore.update(state => ({
             ...state,
-            documents: [document, ...state.documents],
-            error: null
+            documents: [...state.documents, document]
         }));
     },
 
@@ -56,11 +55,7 @@ export const documentActions = {
             ...state,
             documents: state.documents.map(doc => 
                 doc.id === updatedDocument.id ? updatedDocument : doc
-            ),
-            currentDocument: state.currentDocument?.id === updatedDocument.id 
-                ? updatedDocument 
-                : state.currentDocument,
-            error: null
+            )
         }));
     },
 
@@ -68,17 +63,13 @@ export const documentActions = {
     removeDocument: (documentId: string) => {
         documentStore.update(state => ({
             ...state,
-            documents: state.documents.filter(doc => doc.id !== documentId),
-            currentDocument: state.currentDocument?.id === documentId 
-                ? null 
-                : state.currentDocument,
-            error: null
+            documents: state.documents.filter(doc => doc.id !== documentId)
         }));
     },
 
     // Set current document
     setCurrentDocument: (document: Document | null) => {
-        documentStore.update(state => ({ ...state, currentDocument: document, error: null }));
+        documentStore.update(state => ({ ...state, currentDocument: document }));
     },
 
     // Clear all state (useful for logout)

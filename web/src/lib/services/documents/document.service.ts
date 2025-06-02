@@ -110,26 +110,6 @@ export class DocumentService {
             throw new Error('User not authenticated');
         }
 
-        // Initialize cache if empty
-        if (this.documentCache.size === 0) {
-            await this.initializeCache();
-        }
-
-        // If we have a populated cache, use it
-        if (this.documentCache.size > 0) {
-            return Array.from(this.documentCache.values())
-                .filter(doc => doc.user === this.authService.user?.id)
-                .map(doc => ({
-                    id: doc.id,
-                    title: doc.title,
-                    user: doc.user,
-                    created: doc.created,
-                    updated: doc.updated,
-                    is_folder: doc.is_folder
-                }))
-                .sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
-        }
-
         try {
             const records = await this.pb.collection('documents').getFullList<Document>({
                 filter: `user = "${this.authService.user.id}"`,
@@ -152,6 +132,7 @@ export class DocumentService {
                     }))
                     .sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
             }
+            console.error('Failed to get document titles:', error);
             throw error;
         }
     }
@@ -288,6 +269,7 @@ export class DocumentService {
      * Update an existing document
      */
     public async updateDocument(id: string, updates: Partial<Pick<Document, 'title' | 'content' | 'metadata' | 'parent'>>): Promise<void> {
+        this.documentCache.delete(id);
         await this.pb.collection('documents').update<Document>(id, updates, {
             fields: 'id',
         });
@@ -297,6 +279,7 @@ export class DocumentService {
      * Delete a document
      */
     public async deleteDocument(id: string): Promise<void> {
+        this.documentCache.delete(id);
         await this.pb.collection('documents').delete(id);
     }
 

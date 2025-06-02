@@ -1,47 +1,46 @@
 <script lang="ts">
   import { aiService } from "$lib/services/ai";
   import { clipboardService } from "$lib/services/clipboard";
+  import { layoutStore } from "$lib/services/layout/layout.service";
+  import { aiStore } from "$lib/services/ai/ai.store";
+  import { AuthorizationService } from "$lib/services/authorization";
+  import { contextMenu, handleClickOutside, handleEscapeKey } from "$lib/stores/context-menu.store";
+  import { onMount } from "svelte";
 
   // Props
-  export let selectedText: string;
-  export let context: string;
-  export let buttonPosition: { x: number; y: number };
-  export let onClose: () => void;
-
-  // Function to get suggestions from AI
-  async function getSuggestions() {
-    if (!selectedText) return;
-    try {
-      await aiService.getImprovement(selectedText, context);
-    } catch (err) {
-      console.error("Failed to get suggestions:", err);
-    }
+  interface Props {
+    selectedText: string;
+    context: string;
+    buttonPosition: { x: number; y: number };
+    onClose: () => void;
+    onAIAction: (action: 'improve' | 'synonyms' | 'describe', text: string, context: string) => void;
   }
 
-  // Function to get synonyms
-  async function getSynonyms() {
-    if (!selectedText) return;
-    try {
-      await aiService.getSynonyms(selectedText, context);
-    } catch (err) {
-      console.error("Failed to get synonyms:", err);
-    }
-  }
+  let { selectedText, context, buttonPosition, onClose, onAIAction }: Props = $props();
 
-  // Function to get description
-  async function getDescription() {
-    if (!selectedText) return;
-    try {
-      await aiService.getDescription(selectedText, context);
-    } catch (err) {
-      console.error("Failed to get description:", err);
-    }
+  const authService = AuthorizationService.getInstance();
+
+  // Function to handle AI actions
+  async function handleAIAction(action: 'improve' | 'synonyms' | 'describe', event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (!selectedText || !authService.token) return;
+
+    layoutStore.setAIAssistantOpen(true);
+    aiService.setLastAITab("quick");
+    await onAIAction(action, selectedText, context);
+    contextMenu.hide();
+    onClose();
   }
 
   // Function to copy text to clipboard
-  async function copyToClipboard(text: string) {
+  async function copyToClipboard(text: string, event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
     try {
       await clipboardService.copy(text);
+      contextMenu.hide();
       onClose();
     } catch (err) {
       console.error("Failed to copy text:", err);
@@ -49,40 +48,47 @@
   }
 
   // Function to paste from clipboard
-  async function pasteFromClipboard() {
+  async function pasteFromClipboard(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
     try {
       const text = await clipboardService.paste();
-
-      // Focus the editor if it's not already focused
       const editor = document.querySelector(".monaco-editor");
       if (editor) {
         (editor as HTMLElement).focus();
       }
-
-      // Execute paste command
       document.execCommand("insertText", false, text);
-
-      // Hide the context menu after paste
+      contextMenu.hide();
       onClose();
     } catch (err) {
       console.error("Failed to paste text:", err);
     }
   }
+
+  onMount(() => {
+    window.addEventListener("click", (e) => handleClickOutside(e, ".context-menu"));
+    window.addEventListener("keydown", handleEscapeKey);
+    return () => {
+      window.removeEventListener("click", (e) => handleClickOutside(e, ".context-menu"));
+      window.removeEventListener("keydown", handleEscapeKey);
+    };
+  });
 </script>
 
 <div
-  class="fixed z-50"
+  class="fixed z-50 context-menu"
   style="
     top: {buttonPosition.y - 40}px;
     left: {buttonPosition.x}px;
   "
+  on:click|stopPropagation
 >
   <div
     class="flex gap-1 bg-white dark:bg-zinc-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-zinc-700"
   >
     <button
       class="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded transition-colors"
-      on:click={getSuggestions}
+      on:click|stopPropagation={(e) => handleAIAction('improve', e)}
       title="Suggest Improvement"
     >
       <svg
@@ -102,7 +108,7 @@
     {#if selectedText.split(/\s+/).length === 1}
       <button
         class="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded transition-colors"
-        on:click={getSynonyms}
+        on:click|stopPropagation={(e) => handleAIAction('synonyms', e)}
         title="Get Synonyms"
       >
         <svg
@@ -120,7 +126,7 @@
     {/if}
     <button
       class="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded transition-colors"
-      on:click={getDescription}
+      on:click|stopPropagation={(e) => handleAIAction('describe', e)}
       title="Describe Text"
     >
       <svg
@@ -140,7 +146,7 @@
     <div class="w-px h-4 bg-gray-200 dark:bg-zinc-700 mx-1"></div>
     <button
       class="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded transition-colors"
-      on:click={() => copyToClipboard(selectedText)}
+      on:click|stopPropagation={(e) => copyToClipboard(selectedText, e)}
       title="Copy Selected Text"
     >
       <svg
@@ -158,7 +164,7 @@
     </button>
     <button
       class="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded transition-colors"
-      on:click={pasteFromClipboard}
+      on:click|stopPropagation={(e) => pasteFromClipboard(e)}
       title="Paste from Clipboard"
     >
       <svg

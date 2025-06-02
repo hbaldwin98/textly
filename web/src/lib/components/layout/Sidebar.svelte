@@ -4,7 +4,6 @@
   import { AuthorizationService } from "$lib/services/authorization/authorization.service";
   import { authStore } from "$lib/stores/auth.store";
   import { DocumentCommandPalette } from "$lib/components/documents";
-  import { currentDocument } from "$lib/stores/document.store";
   import { DocumentManagerService } from "$lib/services/documents";
   import FolderTree from "$lib/components/ui/FolderTree.svelte";
   import type { Document } from "$lib/services/documents/document.service";
@@ -55,7 +54,6 @@
   let isHovering = $state(false);
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let isCommandPaletteOpen = $state(false);
-  let editingTitle = $state("");
 
   // Services
   let authService: AuthorizationService | null = null;
@@ -65,7 +63,6 @@
   let authState = $derived($authStore);
   let isLoggedIn = $derived(authState.isLoggedIn);
   let userEmail = $derived(authState.user?.email || "");
-  let activeDocument = $derived($currentDocument);
 
   let layoutState = $derived($layoutStore);
   const widthOptions = [
@@ -288,7 +285,7 @@
     <!-- Scrollable Content Area -->
     <div class="flex-1 overflow-y-auto">
       <div class="p-4 h-full flex flex-col space-y-6">
-                  <!-- Documents Section -->
+        <!-- Documents Section -->
         {#if isLoggedIn}
           <div class="border-b border-gray-200 dark:border-zinc-800 pb-4">
             <h3
@@ -296,12 +293,14 @@
             >
               Documents
             </h3>
-            <div class="space-y-2">
+            <div class="space-y-4">
               <!-- Folder Tree Component -->
-              <FolderTree
-                onDocumentSelect={handleDocumentSelect}
-                onFolderSelect={() => {}}
-              />
+              <div class="space-y-2">
+                <FolderTree
+                  onDocumentSelect={handleDocumentSelect}
+                  onFolderSelect={() => {}}
+                />
+              </div>
             </div>
           </div>
         {/if}

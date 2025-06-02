@@ -7,29 +7,54 @@
   import { DocumentManagerService } from "$lib/services/documents/document-manager.service";
   import type { Document } from "$lib/services/documents/document.service";
   import { currentDocument } from "$lib/stores/document.store";
-  import { get } from "svelte/store";
+  import {
+    folderTree,
+    expandedFolders,
+    isFolderTreeLoading,
+    folderTreeError,
+    folderTreeActions,
+  } from "$lib/stores/folder-tree.store";
+  import { documentActions } from "$lib/stores/document.store";
+  import FolderTreeItem from "./FolderTreeItem.svelte";
 
-  export let currentFolderId: string | null = null;
-  export let onDocumentSelect: (document: Document) => void = () => {};
-  export let onFolderSelect: (folderId: string | null) => void = () => {};
+  let {
+    currentFolderId = null,
+    onDocumentSelect = () => {},
+    onFolderSelect = () => {}
+  } = $props<{
+    currentFolderId?: string | null;
+    onDocumentSelect?: (document: Document) => void;
+    onFolderSelect?: (folderId: string | null) => void;
+  }>();
 
   let folderService = FolderService.getInstance();
   let documentManager = DocumentManagerService.getInstance();
-  let folderTree: FolderTreeNode[] = [];
   let breadcrumbs: Document[] = [];
-  let loadingFolders = true;
-  let folderError: string | null = null;
-  let expandedFolders: string[] = [];
-  let flattenedTree: Array<FolderTreeNode & { depth: number }> = [];
   let currentDoc: Document | null = null;
   let unsubscribe: () => void;
+
+  let isUploading = false;
+  let uploadProgress = 0;
+
+  let isUploadMenuOpen = $state(false);
+
+  // Drag and drop state
+  let draggedItem: Document | null = null;
+  let dragOverItem: Document | null = null;
+  let isDragging = false;
+  let dragOverOutside = false;
+  let dragPosition: "top" | "bottom" | null = null;
+
+  let flattenedTree: Array<FolderTreeNode & { depth: number }> = $derived(
+    $folderTree ? renderTreeNode($folderTree, 0, $expandedFolders) : []
+  );
 
   // Subscribe to the current document store
   onMount(() => {
     // Subscribe to current document changes
     unsubscribe = currentDocument.subscribe((doc) => {
       currentDoc = doc;
-      if (doc && folderTree.length > 0) {
+      if (doc && $folderTree.length > 0) {
         expandParentFolders(doc);
       }
     });
@@ -42,15 +67,15 @@
       }
     });
     loadBreadcrumbs();
-    
+
     // Add global event listeners
-    window.addEventListener('click', handleClickOutside);
-    window.addEventListener('keydown', handleKeyDown);
-    
+    window.addEventListener("click", handleClickOutside);
+    window.addEventListener("keydown", handleKeyDown);
+
     // Return cleanup function
     return () => {
-      window.removeEventListener('click', handleClickOutside);
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("click", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
       if (unsubscribe) unsubscribe();
     };
   });
@@ -58,62 +83,67 @@
   // Function to expand parent folders of a document
   async function expandParentFolders(doc: Document) {
     if (!doc.parent) return; // No parent to expand
-    
+
     try {
       const path = await folderService.getBreadcrumbs(doc.parent);
-      const folderIds = path.map(d => d.id);
-      expandedFolders = [...new Set([...expandedFolders, ...folderIds])];
+      const folderIds = path.map((d) => d.id);
+      folderTreeActions.expandFolders(folderIds);
     } catch {
       // Silently ignore errors since this is non-critical functionality
     }
   }
-
-  // Context menu state
-  let contextMenuVisible = false;
-  let contextMenuX = 0;
-  let contextMenuY = 0;
-  let contextMenuTarget: Document | null = null;
 
   // Modal states
   let showCreateFolderModal = false;
   let showRenameModal = false;
   let newFolderName = "";
   let renameName = "";
+  let renameTarget: Document | null = null;
 
-  // Drag and drop state
-  let draggedItem: Document | null = null;
-  let dragOverItem: Document | null = null;
-  let isDragging = false;
-  let dragOverOutside = false;
-  let dragPosition: 'top' | 'bottom' | null = null;
-
-  // Add click outside handler for context menu
+  // Add click outside handler for upload menu
   function handleClickOutside(event: MouseEvent) {
-    if (contextMenuVisible) {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.context-menu')) {
-        hideContextMenu();
-      }
+    const target = event.target as HTMLElement;
+    
+    // Handle upload menu
+    if (isUploadMenuOpen && !target.closest("#upload-menu") && !target.closest("#upload-button")) {
+      isUploadMenuOpen = false;
     }
   }
 
-  // Add escape key handler for context menu
+  // Add escape key handler for upload menu
   function handleKeyDown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-      hideContextMenu();
+    if (event.key === "Escape") {
+      isUploadMenuOpen = false;
     }
   }
 
   async function loadFolderTree() {
     try {
-      loadingFolders = true;
-      folderTree = await folderService.getFolderTree();
+      folderTreeActions.setLoading(true);
+      const tree = await folderService.getFolderTree();
+      // Convert the tree structure to a flat list of documents
+      const documents = flattenTree(tree);
+      folderTreeActions.setTree(documents);
     } catch (err) {
       console.error("FolderTree: Error loading folder tree:", err);
-      folderError = err instanceof Error ? err.message : "Failed to load folders";
+      folderTreeActions.setError(
+        err instanceof Error ? err.message : "Failed to load folders"
+      );
     } finally {
-      loadingFolders = false;
+      folderTreeActions.setLoading(false);
     }
+  }
+
+  // Helper function to flatten the tree structure into a list of documents
+  function flattenTree(nodes: FolderTreeNode[]): Document[] {
+    const documents: Document[] = [];
+    nodes.forEach((node) => {
+      documents.push(node.document);
+      if (node.children.length > 0) {
+        documents.push(...flattenTree(node.children));
+      }
+    });
+    return documents;
   }
 
   async function loadBreadcrumbs() {
@@ -128,14 +158,7 @@
     if (event) {
       event.stopPropagation();
     }
-    
-    const isCurrentlyExpanded = expandedFolders.includes(folderId);
-    
-    if (isCurrentlyExpanded) {
-      expandedFolders = expandedFolders.filter(id => id !== folderId);
-    } else {
-      expandedFolders = [...expandedFolders, folderId];
-    }
+    folderTreeActions.toggleFolder(folderId);
   }
 
   function handleDocumentSelect(document: Document) {
@@ -148,29 +171,18 @@
     }
   }
 
-  function handleRightClick(event: MouseEvent, document: Document) {
-    event.preventDefault();
-    contextMenuTarget = document;
-    contextMenuX = event.clientX;
-    contextMenuY = event.clientY;
-    contextMenuVisible = true;
-  }
-
-  function hideContextMenu() {
-    contextMenuVisible = false;
-    contextMenuTarget = null;
-  }
-
   async function createFolder() {
     if (newFolderName.trim()) {
       try {
         // Create a root folder (no parent)
-        await documentManager.createFolder(newFolderName.trim());
-        await loadFolderTree();
+        const folder = await documentManager.createFolder(newFolderName.trim());
+        folderTreeActions.addDocument(folder);
         newFolderName = "";
         showCreateFolderModal = false;
       } catch (err) {
-        folderError = err instanceof Error ? err.message : "Failed to create folder";
+        folderTreeActions.setError(
+          err instanceof Error ? err.message : "Failed to create folder"
+        );
       }
     }
   }
@@ -182,43 +194,58 @@
         "",
         currentFolderId || undefined
       );
+      folderTreeActions.addDocument(document);
       onDocumentSelect(document);
-      await loadFolderTree();
     } catch (err) {
-      folderError = err instanceof Error ? err.message : "Failed to create document";
+      folderTreeActions.setError(
+        err instanceof Error ? err.message : "Failed to create document"
+      );
     }
   }
 
   async function renameItem() {
-    if (renameName.trim() && contextMenuTarget) {
+    if (renameName.trim() && renameTarget) {
       try {
-        await documentManager.updateTitle(contextMenuTarget.id, renameName.trim());
-        await loadFolderTree();
+        await documentManager.updateTitle(
+          renameTarget.id,
+          renameName.trim()
+        );
+        const updatedDoc = { ...renameTarget, title: renameName.trim() };
+        folderTreeActions.updateDocument(updatedDoc);
         showRenameModal = false;
         renameName = "";
+        renameTarget = null;
       } catch (err) {
-        folderError = err instanceof Error ? err.message : "Failed to rename item";
+        folderTreeActions.setError(
+          err instanceof Error ? err.message : "Failed to rename item"
+        );
       }
     }
   }
 
-  $: flattenedTree = folderTree && renderTreeNode(folderTree, 0, expandedFolders);
-
-  function renderTreeNode(nodes: FolderTreeNode[], depth = 0, expanded: string[] = []): Array<FolderTreeNode & { depth: number }> {
+  function renderTreeNode(
+    nodes: FolderTreeNode[],
+    depth = 0,
+    expanded: string[] = []
+  ): Array<FolderTreeNode & { depth: number }> {
     if (!nodes) return [];
-    
+
     const result: Array<FolderTreeNode & { depth: number }> = [];
-    
+
     nodes.forEach((node) => {
       // Add the current node
       result.push({
         ...node,
         depth,
-        children: node.children
+        children: node.children,
       });
 
       // If expanded and has children, recursively add children
-      if (expanded.includes(node.document.id) && node.children && node.children.length > 0) {
+      if (
+        expanded.includes(node.document.id) &&
+        node.children &&
+        node.children.length > 0
+      ) {
         const childNodes = renderTreeNode(node.children, depth + 1, expanded);
         result.push(...childNodes);
       }
@@ -232,9 +259,53 @@
     if (confirm(`Are you sure you want to delete "${document.title}"?`)) {
       try {
         await documentManager.deleteDocument(document.id);
-        await loadFolderTree();
+        folderTreeActions.removeDocument(document.id);
       } catch (err) {
-        folderError = err instanceof Error ? err.message : "Failed to delete item";
+        folderTreeActions.setError(
+          err instanceof Error ? err.message : "Failed to delete item"
+        );
+      }
+    }
+  }
+
+  async function handleDeleteAll(event: MouseEvent, document: Document) {
+    event.stopPropagation();
+    if (
+      confirm(
+        `Are you sure you want to delete "${document.title}" and all its contents? This action cannot be undone.`
+      )
+    ) {
+      try {
+        // Get all descendants
+        const allNodes = flattenedTree || [];
+        const descendants = allNodes.filter((node) => {
+          let current = node.document;
+          while (current.parent) {
+            if (current.parent === document.id) return true;
+            const parentNode = allNodes.find(
+              (n) => n.document.id === current.parent
+            );
+            if (!parentNode) break;
+            current = parentNode.document;
+          }
+          return false;
+        });
+
+        // Delete all descendants first
+        for (const node of descendants) {
+          await documentManager.deleteDocument(node.document.id);
+          folderTreeActions.removeDocument(node.document.id);
+        }
+
+        // Finally delete the folder itself
+        await documentManager.deleteDocument(document.id);
+        folderTreeActions.removeDocument(document.id);
+      } catch (err) {
+        folderTreeActions.setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to delete folder and contents"
+        );
       }
     }
   }
@@ -244,10 +315,13 @@
     draggedItem = document;
     isDragging = true;
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("application/json", JSON.stringify({
-      id: document.id,
-      is_folder: document.is_folder
-    }));
+    event.dataTransfer.setData(
+      "application/json",
+      JSON.stringify({
+        id: document.id,
+        is_folder: document.is_folder,
+      })
+    );
   }
 
   function handleDragEnd(event: DragEvent) {
@@ -266,7 +340,7 @@
       if (!event.dataTransfer) return;
       const data = event.dataTransfer.getData("application/json");
       if (!data) return;
-      
+
       const dragData = JSON.parse(data);
       if (!dragData.id) return;
 
@@ -284,7 +358,7 @@
       } else {
         dragOverItem = null;
         dragOverOutside = true;
-        dragPosition = 'bottom';
+        dragPosition = "bottom";
       }
     } catch (err) {
       console.error("Error in drag over:", err);
@@ -294,17 +368,20 @@
   function handleDragLeave(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     const target = event.target as HTMLElement;
     const relatedTarget = event.relatedTarget as HTMLElement;
-    
+
     if (!target?.contains(relatedTarget)) {
       dragOverItem = null;
       dragOverOutside = false;
     }
   }
 
-  async function handleDrop(event: DragEvent, targetDocument: Document | null = null) {
+  async function handleDrop(
+    event: DragEvent,
+    targetDocument: Document | null = null
+  ) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -312,13 +389,15 @@
       if (!event.dataTransfer) return;
       const data = event.dataTransfer.getData("application/json");
       if (!data) return;
-      
+
       const dragData = JSON.parse(data);
       if (!dragData.id) return;
 
       // Find the dragged document in the tree
       const allNodes = flattenedTree || [];
-      const draggedDoc = allNodes.find(node => node.document.id === dragData.id)?.document;
+      const draggedDoc = allNodes.find(
+        (node) => node.document.id === dragData.id
+      )?.document;
       if (!draggedDoc) return;
 
       // Silently ignore drops onto the same item
@@ -327,16 +406,24 @@
       }
 
       if (targetDocument) {
-        const canMove = await folderService.canMoveToFolder(draggedDoc.id, targetDocument.id);
+        const canMove = await folderService.canMoveToFolder(
+          draggedDoc.id,
+          targetDocument.id
+        );
         if (!canMove) {
           return;
         }
       }
 
-      await folderService.moveToFolder(draggedDoc.id, targetDocument?.id || null);
+      await folderService.moveToFolder(
+        draggedDoc.id,
+        targetDocument?.id || null
+      );
       await loadFolderTree();
     } catch (err) {
-      folderError = err instanceof Error ? err.message : "Failed to move item";
+      folderTreeActions.setError(
+        err instanceof Error ? err.message : "Failed to move item"
+      );
     } finally {
       draggedItem = null;
       dragOverItem = null;
@@ -344,68 +431,245 @@
       isDragging = false;
     }
   }
+
+  // Helper function to check if a folder has any children
+  function hasChildren(folderId: string): boolean {
+    if (!$folderTree) return false;
+    
+    const checkNode = (nodes: FolderTreeNode[]): boolean => {
+      for (const node of nodes) {
+        if (node.document.parent === folderId) return true;
+        if (node.children.length > 0 && checkNode(node.children)) return true;
+      }
+      return false;
+    };
+    
+    return checkNode($folderTree);
+  }
+
+  async function handleFileSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+
+    isUploading = true;
+    uploadProgress = 0;
+    const files = Array.from(input.files);
+    const totalFiles = files.length;
+    let processedFiles = 0;
+
+    try {
+      // Process each file
+      for (const file of files) {
+        if (!file.name.endsWith(".md")) {
+          continue; // Skip non-markdown files
+        }
+
+        const content = await file.text();
+        const title = file.name.replace(".md", "");
+
+        const document = await documentManager.createDocument(
+          title,
+          content,
+          currentFolderId || undefined
+        );
+
+        // Add the document to the store
+        documentActions.addDocument(document);
+
+        processedFiles++;
+        uploadProgress = (processedFiles / totalFiles) * 100;
+      }
+      
+      // Reload the folder tree to show new items
+      await loadFolderTree();
+    } catch (error) {
+      console.error("Upload failed:", error);
+    } finally {
+      isUploading = false;
+      uploadProgress = 0;
+      // Reset the input
+      input.value = "";
+      // Close the upload menu
+      isUploadMenuOpen = false;
+    }
+  }
+
+  async function handleFolderSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+
+    isUploading = true;
+    uploadProgress = 0;
+
+    // Process the folder structure
+    try {
+      await processFolderStructure(input.files);
+      // Reload the folder tree to show new items
+      await loadFolderTree();
+    } finally {
+      isUploading = false;
+      uploadProgress = 0;
+      // Reset the input
+      input.value = "";
+      // Close the upload menu
+      isUploadMenuOpen = false;
+    }
+  }
+
+  async function processFolderStructure(files: FileList) {
+    const fileArray = Array.from(files);
+    const totalFiles = fileArray.length;
+    let processedFiles = 0;
+
+    // First, create all folders
+    const folderMap = new Map<string, string>(); // path -> folderId
+    folderMap.set("", currentFolderId || ""); // Root folder
+
+    // Sort files to process folders first
+    const sortedFiles = fileArray.sort((a, b) => {
+      const aPath = a.webkitRelativePath || a.name;
+      const bPath = b.webkitRelativePath || b.name;
+      return aPath.split("/").length - bPath.split("/").length;
+    });
+
+    try {
+      for (const file of sortedFiles) {
+        const path = file.webkitRelativePath || file.name;
+        const parts = path.split("/");
+        const fileName = parts.pop()!;
+
+        if (!fileName.endsWith(".md")) {
+          continue; // Skip non-markdown files
+        }
+
+        // Create folders if needed
+        let currentPath = "";
+        for (let i = 0; i < parts.length; i++) {
+          const folderName = parts[i];
+          const parentPath = currentPath;
+          currentPath = currentPath
+            ? `${currentPath}/${folderName}`
+            : folderName;
+
+          if (!folderMap.has(currentPath)) {
+            const parentId = folderMap.get(parentPath) || currentFolderId;
+            const folder = await documentManager.createFolder(
+              folderName,
+              parentId || undefined
+            );
+            folderMap.set(currentPath, folder.id);
+            // Add the folder to the store
+            documentActions.addDocument(folder);
+          }
+        }
+
+        // Create the document
+        const content = await file.text();
+        const title = fileName.replace(".md", "");
+        const parentId = folderMap.get(parts.join("/")) || currentFolderId;
+        const document = await documentManager.createDocument(
+          title,
+          content,
+          parentId || undefined
+        );
+        // Add the document to the store
+        documentActions.addDocument(document);
+
+        processedFiles++;
+        uploadProgress = (processedFiles / totalFiles) * 100;
+      }
+    } catch (error) {
+      console.error("Upload failed:", error);
+      throw error; // Re-throw to be handled by the caller
+    }
+  }
+
+  function handleRename(document: Document) {
+    renameTarget = document;
+    renameName = document.title;
+    showRenameModal = true;
+  }
 </script>
 
 <!-- Folder Tree Actions -->
 <div class="flex items-center gap-2 mb-3">
   <button
-    class="flex-1 flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
-    onclick={() => (showCreateFolderModal = true)}
-    title="New Folder"
-    aria-label="New Folder"
-  >
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="2"
-        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-      />
-    </svg>
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="2"
-        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-      />
-    </svg>
-  </button>
-  <button
-    class="flex-1 flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+    class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
     onclick={createDocument}
     title="New Document"
     aria-label="New Document"
   >
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="2"
-        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-      />
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
     </svg>
+    New
+  </button>
+  <div class="relative">
+    <button
+      id="upload-button"
+      class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+      onclick={() => isUploadMenuOpen = !isUploadMenuOpen}
+      title="Upload Options"
+      aria-label="Upload Options"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+      </svg>
+      Upload
+    </button>
+    <div id="upload-menu" class="absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-900 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 py-1 z-10 {isUploadMenuOpen ? '' : 'hidden'}">
+      <label class="block px-4 py-2 text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
+        <input type="file" accept=".md" multiple onchange={handleFileSelect} class="hidden" disabled={isUploading} />
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 712-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Upload Files
+        </div>
+      </label>
+      <label class="block px-4 py-2 text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
+        <input type="file" accept=".md" webkitdirectory onchange={handleFolderSelect} class="hidden" disabled={isUploading} />
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+          Upload Folder
+        </div>
+      </label>
+    </div>
+  </div>
+  <button
+    class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+    onclick={() => (showCreateFolderModal = true)}
+    title="New Folder"
+    aria-label="New Folder"
+  >
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="2"
-        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-      />
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
     </svg>
+    Folder
   </button>
 </div>
 
+{#if isUploading}
+  <div class="w-full bg-gray-200 dark:bg-zinc-700 rounded-full h-1 mb-3">
+    <div
+      class="bg-blue-600 h-1 rounded-full transition-all duration-300"
+      style="width: {uploadProgress}%"
+    ></div>
+  </div>
+{/if}
+
 <!-- Folder Tree -->
-{#if folderError}
+{#if $folderTreeError}
   <div
     class="p-3 mb-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
   >
-    <p class="text-sm text-red-600 dark:text-red-400">{folderError}</p>
+    <p class="text-sm text-red-600 dark:text-red-400">{$folderTreeError}</p>
     <button
       class="mt-2 text-xs text-red-500 dark:text-red-400 hover:underline"
       onclick={() => {
-        folderError = null;
+        folderTreeActions.setError(null);
         loadFolderTree();
       }}
     >
@@ -414,7 +678,7 @@
   </div>
 {/if}
 
-{#if loadingFolders}
+{#if $isFolderTreeLoading}
   <div
     class="flex items-center justify-center py-8 text-gray-500 dark:text-zinc-500"
   >
@@ -435,7 +699,7 @@
     </svg>
     Loading documents...
   </div>
-{:else if folderTree.length === 0}
+{:else if $folderTree.length === 0}
   <div class="text-center py-8 text-gray-500 dark:text-zinc-500">
     <svg
       class="w-8 h-8 mx-auto mb-2"
@@ -454,7 +718,7 @@
     <p class="text-xs mt-1">Create your first document or folder</p>
   </div>
 {:else}
-  <div 
+  <div
     class="folder-tree-container max-h-64 overflow-y-auto relative p-1"
     ondragover={(e) => handleDragOver(e)}
     ondrop={(e) => handleDrop(e)}
@@ -466,200 +730,39 @@
     {/if}
 
     {#each flattenedTree as node}
-      <div
-        class="flex items-center gap-2 px-2 py-1 text-sm rounded cursor-pointer transition-all duration-200 hover:bg-gray-100 dark:hover:bg-zinc-800 group relative {dragOverItem?.id === node.document.id ? 'bg-blue-50 dark:bg-blue-900 border-2 border-blue-300 dark:border-blue-600 border-dashed' : ''} {currentDoc?.id === node.document.id ? 'bg-blue-100 dark:bg-blue-900/50' : ''}"
-        style="padding-left: {8 + node.depth * 12}px"
-        draggable="true"
-        ondragstart={(e) => handleDragStart(e, node.document)}
-        ondragend={handleDragEnd}
-        ondragover={(e) => handleDragOver(e, node.document)}
-        ondragleave={handleDragLeave}
-        ondrop={(e) => handleDrop(e, node.document)}
-        onclick={() => handleDocumentSelect(node.document)}
-        oncontextmenu={(e) => handleRightClick(e, node.document)}
-        onkeydown={() => handleDocumentSelect(node.document)}
-        tabindex="0"
-        role="treeitem"
-        aria-selected={currentDoc?.id === node.document.id}
-        aria-level={node.depth + 1}
-        aria-setsize={flattenedTree.length}
-      >
-        <!-- Drag indicators (only for non-folders) -->
-        {#if dragOverItem?.id === node.document.id && !node.document.is_folder}
-          {#if dragPosition === 'top'}
-            <div class="absolute inset-x-2 -top-0.5 h-0.5 bg-blue-500"></div>
-          {:else if dragPosition === 'bottom'}
-            <div class="absolute inset-x-2 -bottom-0.5 h-0.5 bg-blue-500"></div>
-          {/if}
-        {/if}
-
-        <!-- Node content -->
-        {#if node.children.length > 0}
-          <button
-            class="flex-shrink-0 w-4 h-4 flex items-center justify-center text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
-            onclick={(e) => toggleFolder(node.document.id, e)}
-          >
-            {#if expandedFolders.includes(node.document.id)}
-              <svg
-                class="w-3 h-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            {:else}
-              <svg
-                class="w-3 h-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            {/if}
-          </button>
-        {:else}
-          <div class="w-4 h-4 flex-shrink-0"></div>
-        {/if}
-        {#if node.document.is_folder}
-          <svg
-            class="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-            />
-          </svg>
-        {:else}
-          <svg
-            class="w-4 h-4 text-gray-500 dark:text-zinc-400 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 712-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-        {/if}
-        <span
-          class="flex-1 truncate text-gray-700 dark:text-zinc-300 group-hover:text-gray-900 dark:group-hover:text-zinc-100"
-          class:font-medium={node.document.is_folder}
-          class:text-blue-700={currentDoc?.id === node.document.id}
-          class:dark:text-blue-300={currentDoc?.id === node.document.id}
-        >
-          {node.document.title ||
-            (node.document.is_folder ? "Untitled Folder" : "Untitled Document")}
-        </span>
-
-        <!-- Drag handle indicator -->
-        <div
-          class="opacity-0 group-hover:opacity-50 transition-opacity duration-200 text-gray-400 dark:text-zinc-500 text-xs mr-1"
-        >
-          ⋮⋮
-        </div>
-
-        <!-- Delete button -->
-        <button
-          class="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-all duration-200 p-1 rounded"
-          onclick={(e) => handleDelete(e, node.document)}
-          title="Delete {node.document.is_folder ? 'folder' : 'document'}"
-          aria-label="Delete {node.document.is_folder ? 'folder' : 'document'}"
-        >
-          <svg
-            class="w-3 h-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+      <FolderTreeItem
+        {node}
+        isExpanded={$expandedFolders.includes(node.document.id)}
+        isSelected={currentDoc?.id === node.document.id}
+        {dragOverItem}
+        {dragPosition}
+        onToggle={toggleFolder}
+        onSelect={handleDocumentSelect}
+        onDelete={handleDelete}
+        onDeleteAll={handleDeleteAll}
+        onRename={handleRename}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      />
     {/each}
-
-    <!-- Context Menu -->
-    {#if contextMenuVisible && contextMenuTarget}
-      <div
-        class="context-menu fixed z-50 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 py-1"
-        style="left: {contextMenuX}px; top: {contextMenuY}px"
-      >
-        <button
-          class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700 flex items-center gap-2"
-          onclick={() => {
-            showRenameModal = true;
-            renameName = contextMenuTarget?.title || '';
-            contextMenuVisible = false;
-          }}
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          Rename
-        </button>
-
-        <button
-          class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700 flex items-center gap-2"
-          onclick={async () => {
-            const target = contextMenuTarget;
-            if (!target) return;
-            if (confirm(`Are you sure you want to delete "${target.title}"?`)) {
-              try {
-                await documentManager.deleteDocument(target.id);
-                await loadFolderTree();
-              } catch (err) {
-                folderError = err instanceof Error ? err.message : "Failed to delete item";
-              }
-            }
-            hideContextMenu();
-          }}
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          Delete
-        </button>
-      </div>
-    {/if}
   </div>
 {/if}
 
 <!-- Create Folder Modal -->
 {#if showCreateFolderModal}
-  <div 
+  <div
     class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
     onclick={() => {
       showCreateFolderModal = false;
-      newFolderName = '';
+      newFolderName = "";
     }}
     onkeydown={(e) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         showCreateFolderModal = false;
-        newFolderName = '';
+        newFolderName = "";
       }
     }}
     aria-roledescription="Create folder modal"
@@ -667,9 +770,8 @@
     aria-modal="true"
     aria-labelledby="create-folder-modal-title"
     tabindex="0"
-
   >
-    <div 
+    <div
       class="bg-white dark:bg-zinc-900 rounded-xl shadow-xl p-6 w-full max-w-md mx-auto transform transition-all"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
@@ -685,11 +787,11 @@
         placeholder="Folder name"
         class="w-full px-4 py-2.5 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100"
         onkeydown={(e) => {
-          if (e.key === 'Enter' && newFolderName.trim()) {
+          if (e.key === "Enter" && newFolderName.trim()) {
             createFolder();
-          } else if (e.key === 'Escape') {
+          } else if (e.key === "Escape") {
             showCreateFolderModal = false;
-            newFolderName = '';
+            newFolderName = "";
           }
         }}
       />
@@ -704,7 +806,7 @@
         <button
           onclick={() => {
             showCreateFolderModal = false;
-            newFolderName = '';
+            newFolderName = "";
           }}
           class="flex-1 px-4 py-2.5 border border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-zinc-300 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
         >
@@ -716,17 +818,19 @@
 {/if}
 
 <!-- Rename Modal -->
-{#if showRenameModal && contextMenuTarget}
-  <div 
+{#if showRenameModal && renameTarget}
+  <div
     class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
     onclick={() => {
       showRenameModal = false;
-      renameName = '';
+      renameName = "";
+      renameTarget = null;
     }}
     onkeydown={(e) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         showRenameModal = false;
-        renameName = '';
+        renameName = "";
+        renameTarget = null;
       }
     }}
     role="dialog"
@@ -734,7 +838,7 @@
     aria-labelledby="rename-modal-title"
     tabindex="0"
   >
-    <div 
+    <div
       class="bg-white dark:bg-zinc-900 rounded-xl shadow-xl p-6 w-full max-w-md mx-auto transform transition-all"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
@@ -742,18 +846,21 @@
       tabindex="0"
     >
       <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">
-        Rename {contextMenuTarget?.is_folder ? 'Folder' : 'Document'}
+        Rename {renameTarget?.is_folder ? "Folder" : "Document"}
       </h3>
       <input
         bind:value={renameName}
-        placeholder={contextMenuTarget?.is_folder ? 'Folder name' : 'Document name'}
+        placeholder={renameTarget?.is_folder
+          ? "Folder name"
+          : "Document name"}
         class="w-full px-4 py-2.5 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100"
         onkeydown={(e) => {
-          if (e.key === 'Enter' && renameName.trim()) {
+          if (e.key === "Enter" && renameName.trim()) {
             renameItem();
-          } else if (e.key === 'Escape') {
+          } else if (e.key === "Escape") {
             showRenameModal = false;
-            renameName = '';
+            renameName = "";
+            renameTarget = null;
           }
         }}
       />
@@ -768,7 +875,8 @@
         <button
           onclick={() => {
             showRenameModal = false;
-            renameName = '';
+            renameName = "";
+            renameTarget = null;
           }}
           class="flex-1 px-4 py-2.5 border border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-zinc-300 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
         >
