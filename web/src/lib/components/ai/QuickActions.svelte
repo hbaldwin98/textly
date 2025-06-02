@@ -11,6 +11,9 @@
   $: clipboardState = $clipboardStore;
   $: aiState = $aiStore;
 
+  // Track which conversations are being deleted
+  let deletingConversations = new Set<string>();
+
   // Load Quick Actions conversations on mount
   onMount(async () => {
     await aiService.loadQuickActionsConversations();
@@ -43,6 +46,31 @@
   // Function to get selected text from clipboard
   function getSelectedText(): string {
     return clipboardState.selectedText || "";
+  }
+
+  // Function to handle conversation deletion
+  async function handleDeleteConversation(conversationId: string) {
+    try {
+      deletingConversations.add(conversationId);
+      await aiService.deleteConversation(conversationId);
+    } catch (err) {
+      console.error('Failed to delete conversation:', err);
+    } finally {
+      deletingConversations.delete(conversationId);
+    }
+  }
+
+  // Function to remove a suggestion from the current suggestions
+  function removeSuggestion(suggestion: string) {
+    aiService.clearSuggestions();
+  }
+
+  // Function to remove an item from history
+  function removeHistoryItem(timestamp: number) {
+    aiStore.update(state => ({
+      ...state,
+      history: state.history.filter(item => item.timestamp !== timestamp)
+    }));
   }
 
   // Function to handle quick actions
@@ -151,7 +179,7 @@
       >
         {aiState.error || aiState.quickActionsError}
       </div>
-    {:else if aiState.suggestions.length === 0 && aiState.history.length === 0 && allConversations.length === 0}
+    {:else if allConversations.length === 0}
       <div
         class="text-xs text-gray-500 dark:text-zinc-400 bg-gray-50 dark:bg-zinc-800/50 p-2 rounded"
       >
@@ -159,94 +187,12 @@
       </div>
     {:else}
       <div class="space-y-4">
-        <!-- Current Suggestions -->
-        {#if aiState.suggestions.length > 0}
-          <div class="space-y-2">
-            <div
-              class="text-xs font-medium text-gray-600 dark:text-zinc-400 mb-2"
-            >
-              Current Suggestion
-            </div>
-            {#each aiState.suggestions as suggestion}
-              <div class="group relative">
-                <button
-                  class="w-full text-left p-3 rounded bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm text-gray-900 dark:text-zinc-100 whitespace-pre-wrap border border-gray-200 dark:border-zinc-800 transition-colors"
-                  on:click={() => onSuggestionAccept(suggestion)}
-                >
-                  {suggestion}
-                </button>
-                <div
-                  class="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <button
-                    class="p-1 text-gray-400 hover:text-gray-600 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
-                    on:click={() => onSuggestionAccept(suggestion)}
-                    title="Accept suggestion"
-                    aria-label="Accept suggestion"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-4 w-4"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {/if}
-
-        <!-- Recent History (in-memory) -->
-        {#if aiState.history.length > 0}
-          <div class="space-y-2">
-            <div
-              class="text-xs font-medium text-gray-600 dark:text-zinc-400 mb-2"
-            >
-              Recent Suggestions
-            </div>
-            {#each aiState.history as item}
-              <div
-                class="p-3 rounded bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800"
-              >
-                <div class="flex justify-between items-center mb-2">
-                  <div class="text-xs text-gray-500 dark:text-zinc-400">
-                    {formatTimestamp(item.timestamp)}
-                  </div>
-                  <div
-                    class="text-xs px-2 py-1 rounded-full {getTypeColor(
-                      item.type
-                    )}"
-                  >
-                    {getTypeLabel(item.type)}
-                  </div>
-                </div>
-                <div class="group relative">
-                  <button
-                    class="w-full text-left p-2 bg-blue-50 dark:bg-blue-900/20 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-gray-900 dark:text-zinc-100"
-                    on:click={() => onSuggestionAccept(item.text)}
-                  >
-                    {item.text}
-                  </button>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {/if}
-
-        <!-- Previous Conversations from API -->
         {#if allConversations.length > 0}
           <div class="space-y-2">
             <div
               class="text-xs font-medium text-gray-600 dark:text-zinc-400 mb-2"
             >
-              Previous Conversations
+              Suggestions
             </div>
             {#each allConversations as conversation}
               <div
@@ -256,12 +202,51 @@
                   <div class="text-xs text-gray-500 dark:text-zinc-400">
                     {formatConversationDate(conversation.updated)}
                   </div>
-                  <div
-                    class="text-xs px-2 py-1 rounded-full {getTypeColor(
-                      conversation.type
-                    )}"
-                  >
-                    {getTypeLabel(conversation.type)}
+                  <div class="flex items-center gap-2">
+                    <div
+                      class="text-xs px-2 py-1 rounded-full {getTypeColor(
+                        conversation.type
+                      )}"
+                    >
+                      {getTypeLabel(conversation.type)}
+                    </div>
+                    <button
+                      class="p-1 text-gray-400 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400 transition-colors"
+                      on:click|stopPropagation={() => handleDeleteConversation(conversation.id)}
+                      title="Delete conversation"
+                      aria-label="Delete conversation"
+                      disabled={deletingConversations.has(conversation.id)}
+                    >
+                      {#if deletingConversations.has(conversation.id)}
+                        <div class="animate-spin h-4 w-4">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-4 w-4"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                      {:else}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                      {/if}
+                    </button>
                   </div>
                 </div>
                 <div class="mb-2">

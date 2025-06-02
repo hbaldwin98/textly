@@ -3,6 +3,7 @@
   import { markedHighlight } from "marked-highlight";
   import { Marked } from "marked";
   import hljs from "highlight.js";
+  import { isMobile } from "$lib/services/layout/layout.service";
 
   export let message: ChatMessage;
   export let isEditing: boolean = false;
@@ -53,13 +54,13 @@
   }
 </script>
 
-<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}">
-  <div class="w-[80%] {message.role === 'user' ? 'order-2' : 'order-1'}">
+<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'} my-8">
+  <div class="{message.role === 'user' ? ($isMobile ? 'w-full' : 'w-[90%] sm:w-[85%] md:w-[80%] lg:w-[75%] xl:w-[70%]') + ' order-2 transition-[width] duration-300 ease-in-out' : 'w-full order-1'}">
     <div class="relative">
       <div
-        class="px-3 py-2 rounded-lg text-sm {message.role === 'user'
-          ? 'bg-blue-500 text-white'
-          : 'bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100'}"
+        class="{message.role === 'user'
+          ? 'px-3 py-2 rounded-lg text-sm bg-blue-500 text-white group relative'
+          : 'text-sm text-gray-900 dark:text-zinc-100'}"
       >
         {#if message.role === "user"}
           {#if isEditing}
@@ -77,7 +78,7 @@
               ></div>
               <div class="flex justify-end gap-2 mt-2">
                 <button
-                  class="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
+                  class="text-xs font-semibold px-3 py-1.5 text-white hover:bg-white/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   on:click={onCancel}
                   title="Cancel editing"
                   disabled={isStreaming}
@@ -85,12 +86,12 @@
                   Cancel
                 </button>
                 <button
-                  class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                  class="text-xs font-semibold px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   on:click={onApply}
                   disabled={!editingContent.trim() || isStreaming}
-                  title="Apply changes and resubmit"
+                  title="Save changes and resubmit"
                 >
-                  Apply
+                  Save
                 </button>
               </div>
             </div>
@@ -152,23 +153,25 @@
         {/if}
 
         {#if message.role === "user" && !isEditing}
-          <button
-            class="menu-button absolute top-2 right-2 p-1 text-blue-200 hover:text-white transition-colors"
-            on:click={() => onMenuToggle(message.id)}
-            title="Message options"
-            aria-label="Message options menu"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+          <div class="absolute -bottom-6 left-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              class="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+              on:click={() => onEdit(message.id)}
+              title="Edit message"
+              aria-label="Edit message"
             >
-              <path
-                d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"
-              />
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
+                />
+              </svg>
+            </button>
+          </div>
         {/if}
       </div>
 

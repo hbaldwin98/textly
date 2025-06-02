@@ -1197,12 +1197,37 @@ class AIService {
         throw new Error(errorData.error || 'Failed to deactivate conversation');
       }
 
-      // Remove from local store only after successful API call
-      aiStore.update(state => ({
-        ...state,
-        conversations: state.conversations.filter(c => c.id !== conversationId),
-        currentConversation: state.currentConversation?.id === conversationId ? null : state.currentConversation
-      }));
+      // Get current state to determine conversation type
+      let currentState: AIState;
+      const unsubscribe = aiStore.subscribe(state => {
+        currentState = state;
+      });
+      unsubscribe();
+
+      // Find the conversation in any of the quick action lists
+      const conversation = currentState!.improvementConversations.find(c => c.id === conversationId) ||
+                         currentState!.synonymsConversations.find(c => c.id === conversationId) ||
+                         currentState!.descriptionConversations.find(c => c.id === conversationId);
+
+      if (conversation) {
+        // Update the appropriate quick action list
+        aiStore.update(state => {
+          const updateList = (list: Conversation[]) => list.filter(c => c.id !== conversationId);
+          return {
+            ...state,
+            improvementConversations: updateList(state.improvementConversations),
+            synonymsConversations: updateList(state.synonymsConversations),
+            descriptionConversations: updateList(state.descriptionConversations)
+          };
+        });
+      } else {
+        // Handle regular chat conversations
+        aiStore.update(state => ({
+          ...state,
+          conversations: state.conversations.filter(c => c.id !== conversationId),
+          currentConversation: state.currentConversation?.id === conversationId ? null : state.currentConversation
+        }));
+      }
 
     } catch (err) {
       console.error('Failed to deactivate conversation:', err);

@@ -330,7 +330,10 @@
         <button
           onclick={sendMessage}
           disabled={!messageInput.trim() || !!editingMessageId}
-          class="flex items-center gap-1.5 px-5 py-2 text-sm font-medium rounded border bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all"
+          class="flex items-center gap-1.5 px-5 py-2 text-sm font-medium rounded border transition-all duration-300 ease-in-out
+            {!messageInput.trim() || !!editingMessageId 
+              ? 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600' 
+              : 'bg-blue-500 dark:bg-blue-600 text-white border-blue-500 dark:border-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700'}"
           title="Send Message"
           aria-label="Send Message"
         >
