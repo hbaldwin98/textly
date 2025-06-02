@@ -132,6 +132,9 @@
               } else {
                 proseMirrorElement.classList.remove('is-empty');
               }
+              // Add custom class to all horizontal rules
+              const hrElements = proseMirrorElement.querySelectorAll('hr');
+              hrElements.forEach(hr => hr.classList.add('custom-hr'));
             }
           }
         });
@@ -155,6 +158,9 @@
           if (!currentDoc?.content?.trim()) {
             proseMirrorElement.classList.add('is-empty');
           }
+          // Add custom class to initial horizontal rules
+          const hrElements = proseMirrorElement.querySelectorAll('hr');
+          hrElements.forEach(hr => hr.classList.add('custom-hr'));
           updateSpellcheck();
         }
       })
@@ -543,14 +549,35 @@
   }
 
   /* Horizontal rule (dividing line) styles */
-  :global(.milkdown-immersive .ProseMirror hr) {
-    margin: 1rem 0 !important;
+  :global(.milkdown-immersive .ProseMirror hr),
+  :global(.prose .milkdown-immersive .ProseMirror hr),
+  :global(.prose-sm .milkdown-immersive .ProseMirror hr),
+  :global(.prose .milkdown-immersive .ProseMirror hr:not(:where([class~="not-prose"], [class~="not-prose"] *))),
+  :global(.prose-sm .milkdown-immersive .ProseMirror hr:not(:where([class~="not-prose"], [class~="not-prose"] *))) {
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
     border: none !important;
     border-top: 1px solid #e5e7eb !important;
+    padding: 0 !important;
   }
 
-  :global(.dark .milkdown-immersive .ProseMirror hr) {
+  :global(.dark .milkdown-immersive .ProseMirror hr),
+  :global(.dark .prose .milkdown-immersive .ProseMirror hr),
+  :global(.dark .prose-sm .milkdown-immersive .ProseMirror hr),
+  :global(.dark .prose .milkdown-immersive .ProseMirror hr:not(:where([class~="not-prose"], [class~="not-prose"] *))),
+  :global(.dark .prose-sm .milkdown-immersive .ProseMirror hr:not(:where([class~="not-prose"], [class~="not-prose"] *))) {
     border-top-color: #4b5563 !important;
+  }
+
+  /* Additional override for prose classes */
+  :global(.prose hr),
+  :global(.prose-sm hr) {
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
 
   /* Spellcheck styles */
