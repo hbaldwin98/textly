@@ -6,7 +6,6 @@
   import { clipboard } from "@milkdown/plugin-clipboard";
   import { listener, listenerCtx } from "@milkdown/plugin-listener";
   import { nord } from "@milkdown/theme-nord";
-  import { marked } from "marked";
   import { onMount } from "svelte";
   import { replaceAll } from "@milkdown/kit/utils";
   import PreviewPane from "../editor/PreviewPane.svelte";
@@ -107,6 +106,15 @@
           if (markdown !== prevMarkdown) {
             currentDocumentId = currentDoc?.id || null;
             onContentChange?.(markdown);
+            // Add or remove empty class based on content
+            const proseMirrorElement = editorElement.querySelector('.ProseMirror');
+            if (proseMirrorElement) {
+              if (!markdown.trim()) {
+                proseMirrorElement.classList.add('is-empty');
+              } else {
+                proseMirrorElement.classList.remove('is-empty');
+              }
+            }
           }
         });
       })
@@ -124,7 +132,14 @@
       .then((editor) => {
         editorInstance = editor;
         // Enable spellcheck on the ProseMirror editor with a small delay
-        setTimeout(() => updateSpellcheck(), 100);
+        setTimeout(() => {
+          updateSpellcheck();
+          // Set initial empty state
+          const proseMirrorElement = editorElement.querySelector('.ProseMirror');
+          if (proseMirrorElement && !currentDoc?.content?.trim()) {
+            proseMirrorElement.classList.add('is-empty');
+          }
+        }, 100);
       })
       .catch((error) => {
         console.error("Failed to create Milkdown editor:", error);
@@ -295,8 +310,24 @@
     white-space: pre-wrap !important;
   }
 
+  /* Add subtle background for empty paragraphs */
+  :global(.milkdown-immersive .ProseMirror p:empty::before) {
+    content: "" !important;
+    display: block !important;
+    background-color: rgba(243, 244, 246, 0.1) !important;
+    border-radius: 0.375rem !important;
+    min-height: 1.5em !important;
+    padding: 0.25rem 0.5rem !important;
+    margin-left: -0.5rem !important;
+    margin-right: -0.5rem !important;
+  }
+
+  :global(.dark .milkdown-immersive .ProseMirror p:empty::before) {
+    background-color: rgba(63, 63, 70, 0.1) !important;
+  }
+
   /* Add hover effect for editable lines */
-  :global(.milkdown-immersive .ProseMirror p),
+  :global(.milkdown-immersive .ProseMirror p:not(:empty)),
   :global(.milkdown-immersive .ProseMirror h1),
   :global(.milkdown-immersive .ProseMirror h2),
   :global(.milkdown-immersive .ProseMirror h3),
@@ -310,7 +341,7 @@
     margin-right: -0.5rem !important;
   }
 
-  :global(.milkdown-immersive .ProseMirror p:hover),
+  :global(.milkdown-immersive .ProseMirror p:not(:empty):hover),
   :global(.milkdown-immersive .ProseMirror h1:hover),
   :global(.milkdown-immersive .ProseMirror h2:hover),
   :global(.milkdown-immersive .ProseMirror h3:hover),
@@ -325,7 +356,7 @@
     ) !important; /* light gray with opacity */
   }
 
-  :global(.dark .milkdown-immersive .ProseMirror p:hover),
+  :global(.dark .milkdown-immersive .ProseMirror p:not(:empty):hover),
   :global(.dark .milkdown-immersive .ProseMirror h1:hover),
   :global(.dark .milkdown-immersive .ProseMirror h2:hover),
   :global(.dark .milkdown-immersive .ProseMirror h3:hover),
@@ -495,16 +526,6 @@
     margin: 0 !important;
     padding: 0 !important;
     line-height: 1 !important;
-  }
-
-  :global(.milkdown-immersive .ProseMirror blockquote) {
-    border-left: 4px solid #e5e7eb !important;
-    padding-left: 1rem !important;
-    margin: 1.5rem 0 !important;
-    font-style: italic !important;
-    color: #6b7280 !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
   }
 
   @media (min-width: 1024px) {
@@ -686,5 +707,48 @@
     .slider::-moz-range-track {
       height: 8px !important;
     }
+  }
+
+  /* Empty editor state */
+  :global(.milkdown-immersive .ProseMirror.is-empty) {
+    position: relative !important;
+  }
+
+  :global(.milkdown-immersive .ProseMirror.is-empty::before) {
+    content: "" !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: -0.5rem !important;
+    right: 0.5rem !important;
+    bottom: 0 !important;
+    background-color: rgba(75, 85, 99, 0.5) !important; /* gray-600 with 50% opacity */
+    border-radius: 0.375rem !important;
+    pointer-events: none !important;
+    transition: opacity 0.2s ease !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+
+  :global(.milkdown-immersive .ProseMirror.is-empty:focus::before),
+  :global(.milkdown-immersive .ProseMirror.is-empty.ProseMirror-focused::before) {
+    opacity: 0 !important;
+  }
+
+  :global(.dark .milkdown-immersive .ProseMirror.is-empty::before) {
+    background-color: rgba(63, 63, 70, 0.2) !important; /* zinc-700 with 20% opacity */
+  }
+
+  /* Add hover effect for editable lines */
+  :global(.milkdown-immersive .ProseMirror p:not(:empty)),
+  :global(.milkdown-immersive .ProseMirror h1),
+  :global(.milkdown-immersive .ProseMirror h2),
+  :global(.milkdown-immersive .ProseMirror h3),
+  :global(.milkdown-immersive .ProseMirror ul),
+  :global(.milkdown-immersive .ProseMirror ol),
+  :global(.milkdown-immersive .ProseMirror blockquote) {
+    transition: background-color 0.2s ease !important;
+    border-radius: 0.375rem !important;
+    padding: 0.25rem 0.5rem !important;
+    margin-left: -0.5rem !important;
+    margin-right: -0.5rem !important;
   }
 </style>
