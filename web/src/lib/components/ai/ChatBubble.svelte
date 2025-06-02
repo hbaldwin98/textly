@@ -38,7 +38,6 @@
       const unescaped = JSON.parse(`"${content.replace(/^"|"$/g, "")}"`).trim();
       return unescaped.replace(/\n/g, "<br>");
     } catch (e) {
-      console.warn("Failed to parse thinking content:", e);
       return content
         .replace(/\\n/g, "\n")
         .replace(/\\"/g, '"')
