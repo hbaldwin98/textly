@@ -95,6 +95,24 @@
     }
   }
 
+  function updateSpellcheck() {
+    if (!editorElement) return;
+    
+    // Set spellcheck on the root editor element
+    editorElement.setAttribute("spellcheck", spellcheck.toString());
+    
+    // Set spellcheck on the ProseMirror element
+    const proseMirrorElement = editorElement.querySelector('.ProseMirror');
+    if (proseMirrorElement) {
+      (proseMirrorElement as HTMLElement).setAttribute('spellcheck', spellcheck.toString());
+    }
+  }
+
+  // Update spellcheck when the prop changes
+  $effect(() => {
+    updateSpellcheck();
+  });
+
   function createMilkdownEditor() {
     if (!editorElement) return;
 
@@ -131,73 +149,19 @@
     makeEditor
       .then((editor) => {
         editorInstance = editor;
-        // Enable spellcheck on the ProseMirror editor with a small delay
-        setTimeout(() => {
-          updateSpellcheck();
-          // Set initial empty state
-          const proseMirrorElement = editorElement.querySelector('.ProseMirror');
-          if (proseMirrorElement && !currentDoc?.content?.trim()) {
+        // Set initial empty state and spellcheck
+        const proseMirrorElement = editorElement.querySelector('.ProseMirror');
+        if (proseMirrorElement) {
+          if (!currentDoc?.content?.trim()) {
             proseMirrorElement.classList.add('is-empty');
           }
-        }, 100);
+          updateSpellcheck();
+        }
       })
       .catch((error) => {
         console.error("Failed to create Milkdown editor:", error);
       });
   }
-
-  function updateSpellcheck() {
-    if (!editorInstance || !editorElement) return;
-
-    // Find the ProseMirror editor element and set spellcheck
-    const proseMirrorElement = editorElement.querySelector(
-      ".ProseMirror"
-    ) as HTMLElement;
-    if (proseMirrorElement) {
-      const spellcheckValue = spellcheck.toString();
-
-      // Set spellcheck attribute
-      proseMirrorElement.setAttribute("spellcheck", spellcheckValue);
-      proseMirrorElement.setAttribute("contenteditable", "true");
-
-      // Force browser to re-evaluate spellcheck by temporarily removing and re-adding content
-      const wasActive = document.activeElement === proseMirrorElement;
-      const selection = window.getSelection();
-      const range =
-        selection && selection.rangeCount > 0
-          ? selection.getRangeAt(0).cloneRange()
-          : null;
-
-      // Temporarily disable and re-enable contenteditable to force spellcheck refresh
-      proseMirrorElement.setAttribute("contenteditable", "false");
-      setTimeout(() => {
-        proseMirrorElement.setAttribute("contenteditable", "true");
-        proseMirrorElement.setAttribute("spellcheck", spellcheckValue);
-
-        // Restore focus and selection if it was active
-        if (wasActive) {
-          proseMirrorElement.focus();
-          if (range && selection) {
-            selection.removeAllRanges();
-            selection.addRange(range);
-          }
-        }
-      }, 10);
-    }
-
-    // Also set spellcheck on the root editor element
-    if (editorElement) {
-      editorElement.setAttribute("spellcheck", spellcheck.toString());
-    }
-  }
-
-  // Update spellcheck when the prop changes
-  $effect(() => {
-    if (editorInstance && spellcheck !== currentSpellcheck) {
-      currentSpellcheck = spellcheck;
-      updateSpellcheck();
-    }
-  });
 
   function editor(dom: HTMLElement) {
     editorElement = dom;
@@ -235,15 +199,30 @@
         <PreviewPane content={currentDoc?.content || ""} />
       {:else}
         <div
-          class="w-full bg-gray-50 dark:bg-zinc-950 rounded-lg p-4 min-h-[600px]
-                    lg:p-6 lg:min-h-[700px] xl:p-8 xl:min-h-[800px]"
-        >
-          <div
-            use:editor
-            class="w-full min-h-[500px] font-serif text-lg leading-relaxed text-gray-900 dark:text-gray-100 milkdown-immersive
-                   lg:min-h-[600px] lg:text-xl xl:min-h-[700px] xl:text-2xl"
-          ></div>
-        </div>
+          use:editor
+          role="textbox"
+          tabindex="0"
+          spellcheck={spellcheck}
+          onfocus={() => {
+            const proseMirrorElement = editorElement?.querySelector('.ProseMirror');
+            if (proseMirrorElement) {
+              (proseMirrorElement as HTMLElement).focus();
+              updateSpellcheck();
+            }
+          }}
+          onkeydown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              const proseMirrorElement = editorElement?.querySelector('.ProseMirror');
+              if (proseMirrorElement) {
+                (proseMirrorElement as HTMLElement).focus();
+                updateSpellcheck();
+              }
+            }
+          }}
+          class="w-full min-h-[500px] text-lg leading-relaxed text-gray-900 dark:text-gray-100 milkdown-immersive
+                 lg:min-h-[600px] lg:text-xl xl:min-h-[700px] xl:text-2xl"
+        ></div>
       {/if}
     </div>
   </div>
@@ -251,7 +230,7 @@
 
 <style>
   :global(.milkdown-immersive) {
-    font-family: "Inter", "Georgia", serif !important;
+    font-family: var(--font-family) !important;
     font-size: 1.125rem !important;
     line-height: 1.7 !important;
     width: 100% !important;
@@ -750,5 +729,13 @@
     padding: 0.25rem 0.5rem !important;
     margin-left: -0.5rem !important;
     margin-right: -0.5rem !important;
+  }
+
+  :global(.milkdown-immersive:focus) {
+    outline: none !important;
+  }
+
+  :global(.dark .milkdown-immersive:focus) {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
   }
 </style>

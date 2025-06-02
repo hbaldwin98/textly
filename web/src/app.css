@@ -4,9 +4,15 @@
 
 /* High-DPI display improvements */
 @layer base {
+  :root {
+    --font-family: "Inter", system-ui, -apple-system, sans-serif;
+    --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+
   html {
     /* Better base font size for high-DPI displays */
     font-size: 16px;
+    font-family: var(--font-family);
   }
   
   /* Scale up on high-DPI displays */

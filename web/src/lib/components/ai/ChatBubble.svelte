@@ -505,4 +505,19 @@
   :global(.dark .hljs-built_in) {
     color: #d2a8ff !important;
   }
+
+  :global(.code-block) {
+    font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace) !important;
+    font-size: 0.875em;
+    line-height: 1.5;
+    padding: 1em;
+    margin: 0.5em 0;
+    overflow-x: auto;
+    background-color: #f8fafc;
+    border-radius: 0.375rem;
+  }
+
+  :global(.dark .code-block) {
+    background-color: #1e293b;
+  }
 </style>

@@ -83,12 +83,49 @@
   ] as const;
 
   let isDarkMode = $state(false);
+  let selectedFont = $state("Inter");
+
+  const availableFonts = [
+    { name: "Inter", value: "Inter" },
+    { name: "Georgia", value: "Georgia" },
+    { name: "Merriweather", value: "Merriweather" },
+    { name: "Source Serif Pro", value: "Source Serif Pro" },
+    { name: "Roboto", value: "Roboto" },
+    { name: "Open Sans", value: "Open Sans" },
+    { name: "Lato", value: "Lato" },
+    { name: "Playfair Display", value: "Playfair Display" },
+    { name: "Poppins", value: "Poppins" },
+    { name: "Montserrat", value: "Montserrat" },
+    { name: "Raleway", value: "Raleway" },
+    { name: "Nunito", value: "Nunito" },
+    { name: "Quicksand", value: "Quicksand" },
+    { name: "Work Sans", value: "Work Sans" },
+    { name: "Crimson Text", value: "Crimson Text" },
+    { name: "Libre Baskerville", value: "Libre Baskerville" },
+    { name: "Source Code Pro", value: "Source Code Pro" },
+    { name: "IBM Plex Sans", value: "IBM Plex Sans" },
+    { name: "Noto Sans", value: "Noto Sans" },
+    { name: "Noto Serif", value: "Noto Serif" }
+  ];
 
   $effect(() => {
     if (typeof document !== "undefined") {
       isDarkMode = document.documentElement.classList.contains("dark");
+      // Load saved font preference
+      const savedFont = localStorage.getItem("textly-font");
+      if (savedFont) {
+        selectedFont = savedFont;
+        document.documentElement.style.setProperty("--font-family", savedFont);
+      }
     }
   });
+
+  function handleFontChange(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    selectedFont = select.value;
+    document.documentElement.style.setProperty("--font-family", selectedFont);
+    localStorage.setItem("textly-font", selectedFont);
+  }
 
   function toggleSidebar() {
     layoutStore.toggleSidebar();
@@ -455,6 +492,25 @@
               </svg>
               Dark Mode
             </button>
+
+            <!-- Font Selection -->
+            <div class="w-full px-3 py-2">
+              <label for="font-select" class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+                Font Family
+              </label>
+              <select
+                id="font-select"
+                class="w-full px-2 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+                value={selectedFont}
+                onchange={handleFontChange}
+              >
+                {#each availableFonts as font}
+                  <option value={font.value} style="font-family: {font.value}">
+                    {font.name}
+                  </option>
+                {/each}
+              </select>
+            </div>
           </div>
         </div>
       </div>
