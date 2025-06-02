@@ -29,6 +29,10 @@
   function handleTouchStart(event: TouchEvent) {
     if (message.role !== "user" || isEditing) return;
     
+    if (!(event.target as HTMLElement).closest('button')) {
+      event.preventDefault();
+    }
+    
     isTouching = true;
     touchStartTime = Date.now();
     touchStartX = event.touches[0].clientX;
@@ -57,7 +61,7 @@
     }
   }
 
-  function handleTouchEnd() {
+  function handleTouchEnd(event: TouchEvent) {
     if (longPressTimer) {
       clearTimeout(longPressTimer);
       longPressTimer = null;
@@ -110,9 +114,9 @@
         on:touchstart={handleTouchStart}
         on:touchmove={handleTouchMove}
         on:touchend={handleTouchEnd}
-        class:scale-95={isTouching}
+        class:rebound-touch={isTouching}
         class:transition-all={isTouching}
-        class:duration-200={isTouching}
+        class:duration-400={isTouching}
         class:bg-blue-600={isLongPressing}
         class:shadow-lg={isTouching}
         class:translate-y-[-2px]={isTouching}
@@ -574,5 +578,21 @@
 
   :global(.dark .code-block) {
     background-color: #1e293b;
+  }
+
+  :global(.rebound-touch) {
+    animation: rebound 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes rebound {
+    0% {
+      transform: scale(1);
+    }
+    40% {
+      transform: scale(1.03);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
 </style>

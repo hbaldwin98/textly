@@ -232,12 +232,12 @@
   <div class="p-4 h-full flex flex-col">
     <!-- Header with tabs -->
     <div
-      class="flex items-center justify-between mb-4 border-b border-gray-200 dark:border-zinc-800 pb-4"
+      class="flex items-center justify-between mb-2 sm:mb-4 border-b border-gray-200 dark:border-zinc-800 pb-2 sm:pb-4"
       class:max-w-5xl={layoutState.isFullscreen}
       class:mx-auto={layoutState.isFullscreen}
       class:w-full={layoutState.isFullscreen}
     >
-      <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">
+      <h2 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-zinc-100">
         Archibald - Assistant
       </h2>
       <div class="flex items-center gap-2">
@@ -327,7 +327,7 @@
         <span class="hidden sm:inline">Chat</span>
       </button>
       <button
-        class="flex-1 px-1.5 py-1 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1"
+        class="flex-1 px-1.5 py-1 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1 hidden md:flex"
         class:bg-gray-100={activeTab === "settings"}
         class:dark:bg-zinc-800={activeTab === "settings"}
         class:text-blue-600={activeTab === "settings"}
