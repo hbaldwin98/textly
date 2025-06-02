@@ -80,9 +80,15 @@
   // Update editor content when document ID changes
   $effect(() => {
     let document = currentDoc;
-    if (editorInstance && document && document.id !== currentDocumentId) {
-      updateEditorContent(document.content);
-      currentDocumentId = document.id;
+    if (editorInstance) {
+      if (document && document.id !== currentDocumentId) {
+        updateEditorContent(document.content);
+        currentDocumentId = document.id;
+      } else if (!document) {
+        // Clear editor content when document becomes null
+        updateEditorContent("");
+        currentDocumentId = null;
+      }
     }
   });
 
