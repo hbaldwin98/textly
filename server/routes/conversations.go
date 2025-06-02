@@ -275,7 +275,7 @@ func streamAndSaveConversation(e *core.RequestEvent, conversationId, userMessage
 	}
 
 	// Start streaming
-	stream := services.Chat(messages, model, useReasoning)
+	stream := services.Chat(messages, model, useReasoning, e.Request.Context())
 
 	var responseBuilder strings.Builder
 	var thinkingBuilder strings.Builder

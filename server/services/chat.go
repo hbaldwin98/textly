@@ -53,7 +53,7 @@ type TextAssistResponse struct {
 	Suggestion string `json:"suggestion"`
 }
 
-func Chat(messages []Message, model string, useReasoning bool) *ssestream.Stream[openai.ChatCompletionChunk] {
+func Chat(messages []Message, model string, useReasoning bool, ctx context.Context) *ssestream.Stream[openai.ChatCompletionChunk] {
 	var client = GetOpenAiClient()
 
 	selectedModel := model
@@ -76,7 +76,7 @@ func Chat(messages []Message, model string, useReasoning bool) *ssestream.Stream
 		"include_reasoning": param.NewOpt(useReasoning),
 	})
 
-	return client.Chat.Completions.NewStreaming(context.TODO(), params)
+	return client.Chat.Completions.NewStreaming(ctx, params)
 }
 
 func convertToChatMessage(messages []Message, systemRules []string) []openai.ChatCompletionMessageParamUnion {

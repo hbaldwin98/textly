@@ -291,13 +291,13 @@
 
     <!-- Tab Navigation -->
     <div 
-      class="flex mb-4 bg-white dark:bg-zinc-900 rounded-lg p-1"
+      class="flex mb-3 bg-white dark:bg-zinc-900 rounded-lg p-0.5"
       class:max-w-5xl={layoutState.isFullscreen}
       class:mx-auto={layoutState.isFullscreen}
       class:w-full={layoutState.isFullscreen}
     >
       <button
-        class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
+        class="flex-1 px-1.5 py-1 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1"
         class:bg-gray-100={activeTab === "quick"}
         class:dark:bg-zinc-800={activeTab === "quick"}
         class:text-blue-600={activeTab === "quick"}
@@ -306,10 +306,13 @@
         class:dark:text-zinc-400={activeTab !== "quick"}
         onclick={() => (activeTab = "quick")}
       >
-        Quick Actions
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+        </svg>
+        <span class="hidden sm:inline">Quick</span>
       </button>
       <button
-        class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
+        class="flex-1 px-1.5 py-1 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1"
         class:bg-gray-100={activeTab === "chat"}
         class:dark:bg-zinc-800={activeTab === "chat"}
         class:text-blue-600={activeTab === "chat"}
@@ -318,10 +321,13 @@
         class:dark:text-zinc-400={activeTab !== "chat"}
         onclick={() => (activeTab = "chat")}
       >
-        Chat
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd" />
+        </svg>
+        <span class="hidden sm:inline">Chat</span>
       </button>
       <button
-        class="flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors"
+        class="flex-1 px-1.5 py-1 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1"
         class:bg-gray-100={activeTab === "settings"}
         class:dark:bg-zinc-800={activeTab === "settings"}
         class:text-blue-600={activeTab === "settings"}
@@ -330,7 +336,10 @@
         class:dark:text-zinc-400={activeTab !== "settings"}
         onclick={() => (activeTab = "settings")}
       >
-        Settings
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+        </svg>
+        <span class="hidden sm:inline">Settings</span>
       </button>
     </div>
 

@@ -64,7 +64,7 @@
 <div class="relative" bind:this={dropdownElement}>
   <!-- Model Cards Pane (opens upward) -->
   {#if isOpen && !modelState.isLoading}
-    <div class="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg shadow-lg z-50 p-2 max-h-96 overflow-y-auto">
+    <div class="absolute bottom-full mb-2 left-0 -ml-4 bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg shadow-lg z-50 p-2 max-h-96 overflow-y-auto w-[calc(100vw-2rem)] sm:w-[640px]">
       {#if modelState.availableModels.length === 0}
         <div class="text-center text-gray-500 dark:text-zinc-400 py-3">
           No models available
@@ -143,7 +143,7 @@
   <div class="flex items-center gap-2">
     <!-- Model Selection Button -->
     <button
-      class="flex items-center gap-2 px-2 mr-0.5 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex-1"
+      class="flex items-center gap-1.5 px-1.5 sm:px-2 py-1 text-sm bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
       onclick={togglePane}
       disabled={modelState.isLoading}
       title="Select AI Model"
@@ -153,7 +153,7 @@
         <span class="text-gray-500 dark:text-zinc-400 text-xs">Loading...</span>
       {:else if modelState.selectedModel}
         <span class="text-sm">{modelState.selectedModel.icon}</span>
-        <div class="flex-1 text-left">
+        <div class="hidden sm:block flex-1 text-left">
           <div class="font-medium text-gray-900 dark:text-zinc-100 text-xs truncate">
             {modelState.selectedModel.name}
           </div>

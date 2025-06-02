@@ -530,9 +530,7 @@ class AIService {
                           conversationForUI = updatedConversation;
                           assistantMessage.thinkingContent = updatedAssistantMessage.thinkingContent;
                         }
-                      } catch (e) {
-                        console.warn('Failed to parse thinking event:', e);
-                      }
+                      } catch {}
                     } else {
                       // Unescape newlines and add content to accumulated content
                       const unescapedData = data.replace(/\\n/g, '\n');
@@ -907,9 +905,7 @@ class AIService {
                           conversationForUI = updatedConversation;
                           assistantMessage.thinkingContent = updatedAssistantMessage.thinkingContent;
                         }
-                      } catch (e) {
-                        console.warn('Failed to parse thinking event:', e);
-                      }
+                      } catch {}
                     } else {
                       // Unescape newlines and add content to accumulated content
                       const unescapedData = data.replace(/\\n/g, '\n');
@@ -1397,18 +1393,67 @@ class AIService {
   }
 
   // Method to stop the current conversation
-  public stopCurrentConversation(): void {
+  public stopCurrentConversation(): string | null {
     if (this.currentAbortController) {
       this.currentAbortController.abort();
       this.currentAbortController = null;
 
       // Update store to reflect stopped state
-      aiStore.update(state => ({
-        ...state,
-        isChatLoading: false,
-        chatError: 'Conversation stopped by user'
-      }));
+      let lastUserMessage: string | null = null;
+      aiStore.update(state => {
+        const currentConversation = state.currentConversation;
+        if (!currentConversation) return state;
+
+        // Get the last user message content before removing messages
+        const lastMessage = currentConversation.messages[currentConversation.messages.length - 1];
+        if (lastMessage?.role === 'assistant') {
+          const secondLastMessage = currentConversation.messages[currentConversation.messages.length - 2];
+          if (secondLastMessage?.role === 'user') {
+            lastUserMessage = secondLastMessage.content;
+            // Remove both the assistant and user messages
+            const updatedMessages = currentConversation.messages.slice(0, -2);
+            
+            // Update both current conversation and conversations list
+            const updatedConversation = {
+              ...currentConversation,
+              messages: updatedMessages
+            };
+
+            const updatedConversations = state.conversations.map(c =>
+              c.id === currentConversation.id ? updatedConversation : c
+            );
+
+            return {
+              ...state,
+              currentConversation: updatedConversation,
+              conversations: updatedConversations,
+              isChatLoading: false,
+              chatError: 'Conversation stopped by user'
+            };
+          }
+        }
+
+        const updatedConversation = {
+          ...currentConversation,
+          messages: currentConversation.messages.slice(0, -1)
+        };
+
+        const updatedConversations = state.conversations.map(c =>
+          c.id === currentConversation.id ? updatedConversation : c
+        );
+
+        return {
+          ...state,
+          currentConversation: updatedConversation,
+          conversations: updatedConversations,
+          isChatLoading: false,
+          chatError: 'Conversation stopped by user'
+        };
+      });
+
+      return lastUserMessage;
     }
+    return null;
   }
 
   // Add methods to update UI state

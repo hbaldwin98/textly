@@ -48,6 +48,11 @@
     );
   });
 
+  function handleInput(event: Event) {
+    const target = event.target as HTMLElement;
+    messageInput = target.innerText;
+  }
+
   onDestroy(() => {
     if (unsubscribe) {
       unsubscribe();
@@ -92,7 +97,8 @@
       currentMessageCount > previousMessageCount ||
       currentContentLength > previousContentLength;
 
-    const isNewConversation = currentConversationId !== aiState.currentConversation.id;
+    const isNewConversation =
+      currentConversationId !== aiState.currentConversation.id;
 
     if (isNewConversation) {
       shouldAutoScroll = true;
@@ -119,15 +125,7 @@
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
-    } else if (event.key === "Escape" && editingMessageId) {
-      event.preventDefault();
-      cancelEditing();
     }
-  }
-
-  function handleInput(event: Event) {
-    const target = event.target as HTMLElement;
-    messageInput = target.innerText;
   }
 
   function startEditing(message: ChatMessage) {
@@ -216,7 +214,7 @@
 
     <!-- Chat Messages -->
     <div
-      class="flex-1 overflow-y-auto p-3 space-y-4 relative"
+      class="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-4 relative"
       bind:this={chatContainer}
       onwheel={handleScroll}
     >
@@ -291,67 +289,114 @@
   </div>
 
   <!-- Message Input -->
-  <div class="border-t border-gray-200 dark:border-zinc-800 p-3">
-    <!-- Model Selector -->
-    <div class="mb-2">
-      <ModelSelector />
-    </div>
+  <div class="border-t border-gray-200 dark:border-zinc-800 p-2 sm:p-3">
+    <div class="flex flex-col gap-2">
+      <div class="relative">
+        <div
+          class="w-full min-h-[80px] rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 sm:px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 placeholder-gray-500 dark:placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        >
+          <div class="flex items-start gap-2">
+            <!-- Editable Content Area -->
+            <div
+              bind:textContent={messageInput}
+              onkeydown={handleKeydown}
+              contenteditable="true"
+              class="flex-1 min-h-[60px] outline-none whitespace-pre-wrap break-words overflow-x-hidden"
+              class:pointer-events-none={aiState.isChatLoading ||
+                !!editingMessageId}
+              data-placeholder="Ask the AI assistant anything..."
+              role="textbox"
+              aria-multiline="true"
+              tabindex="0"
+            ></div>
 
-    <div class="flex gap-2">
-      <textarea
-        bind:value={messageInput}
-        onkeydown={handleKeydown}
-        placeholder="Ask the AI assistant anything..."
-        class="flex-1 resize-none rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 placeholder-gray-500 dark:placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        rows="2"
-        disabled={aiState.isChatLoading || !!editingMessageId}
-      ></textarea>
-      {#if aiState.isChatLoading}
-        <button
-          onclick={() => aiService.stopCurrentConversation()}
-          class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
-          title="Stop generating"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          Stop
-        </button>
-      {:else}
-        <button
-          onclick={sendMessage}
-          disabled={!messageInput.trim() || !!editingMessageId}
-          class="flex items-center gap-1.5 px-5 py-2 text-sm font-medium rounded border transition-all duration-300 ease-in-out
-            {!messageInput.trim() || !!editingMessageId 
-              ? 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600' 
-              : 'bg-blue-500 dark:bg-blue-600 text-white border-blue-500 dark:border-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700'}"
-          title="Send Message"
-          aria-label="Send Message"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"
-            />
-          </svg>
-        </button>
-      {/if}
-    </div>
-    <div class="text-xs text-gray-500 dark:text-zinc-400 mt-1">
-      Press Enter to send, Shift+Enter for new line
+            <!-- Send/Stop Button -->
+            {#if aiState.isChatLoading}
+              <button
+                onclick={() => {
+                  const lastMessage = aiService.stopCurrentConversation();
+                  if (lastMessage) {
+                    // Set the message input and focus the input element
+                    messageInput = lastMessage;
+                    const inputElement = document.querySelector('[contenteditable="true"]') as HTMLElement;
+                    if (inputElement) {
+                      inputElement.focus();
+                    }
+                  }
+                }}
+                class="p-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center"
+                title="Stop generating"
+                aria-label="Stop generating"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            {:else}
+              <button
+                onclick={sendMessage}
+                disabled={!messageInput.trim() || !!editingMessageId}
+                class="p-1.5 rounded border transition-all duration-300 ease-in-out
+                  {!messageInput.trim() || !!editingMessageId
+                  ? 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  : 'bg-blue-500 dark:bg-blue-600 text-white border-blue-500 dark:border-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700'}"
+                title="Send Message"
+                aria-label="Send Message"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"
+                  />
+                </svg>
+              </button>
+            {/if}
+          </div>
+
+          <!-- Mobile Model Controls -->
+          <div class="sm:hidden mt-2">
+            <ModelSelector />
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Controls (Desktop Only) -->
+      <div class="hidden sm:flex items-center justify-between">
+        <!-- Model Selector -->
+        <div class="flex-shrink-0">
+          <ModelSelector />
+        </div>
+
+        <div class="text-xs text-gray-500 dark:text-zinc-400">
+          Press Enter to send, Shift+Enter for new line
+        </div>
+      </div>
     </div>
   </div>
 </div>
+
+<style>
+  [contenteditable]:empty:before {
+    content: attr(data-placeholder);
+    color: #6b7280;
+  }
+  [contenteditable]:empty:before {
+    color: #9ca3af;
+  }
+  .dark [contenteditable]:empty:before {
+    color: #71717a;
+  }
+</style>

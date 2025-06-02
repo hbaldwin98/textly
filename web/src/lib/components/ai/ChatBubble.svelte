@@ -19,6 +19,53 @@
   export let onEdit: (messageId: string) => void = () => {};
   export let onMenuToggle: (messageId: string) => void = () => {};
 
+  let longPressTimer: number | null = null;
+  let isLongPressing = false;
+  let isTouching = false;
+  let touchStartTime = 0;
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  function handleTouchStart(event: TouchEvent) {
+    if (message.role !== "user" || isEditing) return;
+    
+    isTouching = true;
+    touchStartTime = Date.now();
+    touchStartX = event.touches[0].clientX;
+    touchStartY = event.touches[0].clientY;
+    
+    longPressTimer = window.setTimeout(() => {
+      isLongPressing = true;
+      onEdit(message.id);
+    }, 500);
+  }
+
+  function handleTouchMove(event: TouchEvent) {
+    if (!longPressTimer) return;
+    
+    const touch = event.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartX);
+    const deltaY = Math.abs(touch.clientY - touchStartY);
+    
+    if (deltaX > 10 || deltaY > 10) {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      isLongPressing = false;
+      isTouching = false;
+    }
+  }
+
+  function handleTouchEnd() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+    isLongPressing = false;
+    isTouching = false;
+  }
+
   const marked = new Marked(
     markedHighlight({
       async: true,
@@ -53,13 +100,22 @@
   }
 </script>
 
-<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'} my-8">
+<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'} my-4 sm:my-8">
   <div class="{message.role === 'user' ? ($isMobile ? 'w-full' : 'w-[90%] sm:w-[85%] md:w-[80%] lg:w-[75%] xl:w-[70%]') + ' order-2 transition-[width] duration-300 ease-in-out' : 'w-full order-1'}">
     <div class="relative">
       <div
         class="{message.role === 'user'
-          ? 'px-3 py-2 rounded-lg text-sm bg-blue-500 text-white group relative'
+          ? 'px-2.5 sm:px-3 py-2 rounded-lg text-sm bg-blue-500 text-white group relative'
           : 'text-sm text-gray-900 dark:text-zinc-100'}"
+        on:touchstart={handleTouchStart}
+        on:touchmove={handleTouchMove}
+        on:touchend={handleTouchEnd}
+        class:scale-95={isTouching}
+        class:transition-all={isTouching}
+        class:duration-200={isTouching}
+        class:bg-blue-600={isLongPressing}
+        class:shadow-lg={isTouching}
+        class:translate-y-[-2px]={isTouching}
       >
         {#if message.role === "user"}
           {#if isEditing}
@@ -67,10 +123,10 @@
               <div
                 contenteditable="true"
                 bind:this={editingElement}
-                bind:innerHTML={editingContent}
+                bind:textContent={editingContent}
                 on:input={onInput}
                 on:keydown={onKeydown}
-                class="w-full bg-transparent outline-none whitespace-pre-wrap break-words min-h-[1.5em]"
+                class="w-full bg-transparent outline-none whitespace-pre-wrap break-words min-h-[1.5em] overflow-x-hidden"
                 role="textbox"
                 aria-multiline="true"
                 tabindex="0"
@@ -78,7 +134,7 @@
               <div class="flex justify-end gap-2 mt-2">
                 <button
                   class="text-xs font-semibold px-3 py-1.5 text-white hover:bg-white/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  on:click={onCancel}
+                  on:click|stopPropagation={onCancel}
                   title="Cancel editing"
                   disabled={isStreaming}
                 >
@@ -86,7 +142,7 @@
                 </button>
                 <button
                   class="text-xs font-semibold px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  on:click={onApply}
+                  on:click|stopPropagation={onApply}
                   disabled={!editingContent.trim() || isStreaming}
                   title="Save changes and resubmit"
                 >
