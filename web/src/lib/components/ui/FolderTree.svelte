@@ -16,11 +16,12 @@
   } from "$lib/stores/folder-tree.store";
   import { documentActions } from "$lib/stores/document.store";
   import FolderTreeItem from "./FolderTreeItem.svelte";
+  import JSZip from "jszip";
 
   let {
     currentFolderId = null,
     onDocumentSelect = () => {},
-    onFolderSelect = () => {}
+    onFolderSelect = () => {},
   } = $props<{
     currentFolderId?: string | null;
     onDocumentSelect?: (document: Document) => void;
@@ -30,20 +31,27 @@
   let folderService = FolderService.getInstance();
   let documentManager = DocumentManagerService.getInstance();
   let breadcrumbs: Document[] = [];
-  let currentDoc: Document | null = null;
   let unsubscribe: () => void;
 
-  let isUploading = false;
-  let uploadProgress = 0;
+  let isUploading = $state(false);
+  let uploadProgress = $state(0);
+  let isExporting = $state(false);
 
-  let isUploadMenuOpen = $state(false);
+  let isImportExportMenuOpen = $state(false);
 
   // Drag and drop state
-  let draggedItem: Document | null = null;
-  let dragOverItem: Document | null = null;
-  let isDragging = false;
-  let dragOverOutside = false;
-  let dragPosition: "top" | "bottom" | null = null;
+  let draggedItem: Document | null = $state(null);
+  let dragOverItem: Document | null = $state(null);
+  let isDragging = $state(false);
+  let dragOverOutside = $state(false);
+  let dragPosition: "top" | "bottom" | null = $state(null);
+
+  // Modal states
+  let showCreateFolderModal = $state(false);
+  let showRenameModal = $state(false);
+  let newFolderName = $state("");
+  let renameName = $state("");
+  let renameTarget: Document | null = $state(null);
 
   let flattenedTree: Array<FolderTreeNode & { depth: number }> = $derived(
     $folderTree ? renderTreeNode($folderTree, 0, $expandedFolders) : []
@@ -53,7 +61,6 @@
   onMount(() => {
     // Subscribe to current document changes
     unsubscribe = currentDocument.subscribe((doc) => {
-      currentDoc = doc;
       if (doc && $folderTree.length > 0) {
         expandParentFolders(doc);
       }
@@ -62,8 +69,8 @@
     // Load data
     loadFolderTree().then(() => {
       // Expand parent folders of current document if it exists
-      if (currentDoc) {
-        expandParentFolders(currentDoc);
+      if ($currentDocument) {
+        expandParentFolders($currentDocument);
       }
     });
     loadBreadcrumbs();
@@ -93,27 +100,24 @@
     }
   }
 
-  // Modal states
-  let showCreateFolderModal = false;
-  let showRenameModal = false;
-  let newFolderName = "";
-  let renameName = "";
-  let renameTarget: Document | null = null;
-
   // Add click outside handler for upload menu
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
-    
-    // Handle upload menu
-    if (isUploadMenuOpen && !target.closest("#upload-menu") && !target.closest("#upload-button")) {
-      isUploadMenuOpen = false;
+
+    // Handle import/export menu
+    if (
+      isImportExportMenuOpen &&
+      !target.closest("#import-export-menu") &&
+      !target.closest("#import-export-button")
+    ) {
+      isImportExportMenuOpen = false;
     }
   }
 
   // Add escape key handler for upload menu
   function handleKeyDown(event: KeyboardEvent) {
     if (event.key === "Escape") {
-      isUploadMenuOpen = false;
+      isImportExportMenuOpen = false;
     }
   }
 
@@ -206,10 +210,7 @@
   async function renameItem() {
     if (renameName.trim() && renameTarget) {
       try {
-        await documentManager.updateTitle(
-          renameTarget.id,
-          renameName.trim()
-        );
+        await documentManager.updateTitle(renameTarget.id, renameName.trim());
         const updatedDoc = { ...renameTarget, title: renameName.trim() };
         folderTreeActions.updateDocument(updatedDoc);
         showRenameModal = false;
@@ -260,6 +261,7 @@
       try {
         await documentManager.deleteDocument(document.id);
         folderTreeActions.removeDocument(document.id);
+        await loadFolderTree();
       } catch (err) {
         folderTreeActions.setError(
           err instanceof Error ? err.message : "Failed to delete item"
@@ -276,30 +278,60 @@
       )
     ) {
       try {
-        // Get all descendants
+        // Get all descendants by traversing the tree structure
         const allNodes = flattenedTree || [];
-        const descendants = allNodes.filter((node) => {
-          let current = node.document;
-          while (current.parent) {
-            if (current.parent === document.id) return true;
-            const parentNode = allNodes.find(
-              (n) => n.document.id === current.parent
-            );
-            if (!parentNode) break;
-            current = parentNode.document;
+        const descendants: Array<FolderTreeNode & { depth: number }> = [];
+
+        // Helper function to find all descendants recursively
+        function findDescendants(
+          node: FolderTreeNode & { depth: number },
+          targetId: string,
+          currentDepth: number
+        ) {
+          if (node.document.id === targetId) {
+            // Found the target node, add all its children as descendants
+            node.children.forEach((child) => {
+              const childWithDepth = { ...child, depth: currentDepth + 1 };
+              descendants.push(childWithDepth);
+              findDescendants(
+                childWithDepth,
+                child.document.id,
+                currentDepth + 1
+              );
+            });
+          } else {
+            // Continue searching in children
+            node.children.forEach((child) => {
+              findDescendants(
+                { ...child, depth: currentDepth + 1 },
+                targetId,
+                currentDepth + 1
+              );
+            });
           }
-          return false;
+        }
+
+        // Start the search from each root node
+        allNodes.forEach((node) => {
+          if (!node.document.parent) {
+            // Root nodes
+            findDescendants(node, document.id, 0);
+          }
         });
 
-        // Delete all descendants first
-        for (const node of descendants) {
+        // Sort descendants by depth (deepest first) to ensure we delete children before parents
+        const sortedDescendants = descendants.sort((a, b) => b.depth - a.depth);
+
+        // Delete all descendants first, starting with the deepest
+        for (const node of sortedDescendants) {
           await documentManager.deleteDocument(node.document.id);
           folderTreeActions.removeDocument(node.document.id);
         }
 
-        // Finally delete the folder itself
+        // Finally delete the target document
         await documentManager.deleteDocument(document.id);
         folderTreeActions.removeDocument(document.id);
+        await loadFolderTree();
       } catch (err) {
         folderTreeActions.setError(
           err instanceof Error
@@ -432,21 +464,6 @@
     }
   }
 
-  // Helper function to check if a folder has any children
-  function hasChildren(folderId: string): boolean {
-    if (!$folderTree) return false;
-    
-    const checkNode = (nodes: FolderTreeNode[]): boolean => {
-      for (const node of nodes) {
-        if (node.document.parent === folderId) return true;
-        if (node.children.length > 0 && checkNode(node.children)) return true;
-      }
-      return false;
-    };
-    
-    return checkNode($folderTree);
-  }
-
   async function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     if (!input.files?.length) return;
@@ -460,127 +477,166 @@
     try {
       // Process each file
       for (const file of files) {
-        if (!file.name.endsWith(".md")) {
-          continue; // Skip non-markdown files
-        }
+        try {
+          if (file.name.endsWith(".zip")) {
+            // Process zip file
+            await processZipFile(file);
+          } else if (file.name.endsWith(".md")) {
+            const content = await file.text();
+            const title = file.name.replace(".md", "");
 
-        const content = await file.text();
-        const title = file.name.replace(".md", "");
-
-        const document = await documentManager.createDocument(
-          title,
-          content,
-          currentFolderId || undefined
-        );
-
-        // Add the document to the store
-        documentActions.addDocument(document);
-
-        processedFiles++;
-        uploadProgress = (processedFiles / totalFiles) * 100;
-      }
-      
-      // Reload the folder tree to show new items
-      await loadFolderTree();
-    } catch (error) {
-      console.error("Upload failed:", error);
-    } finally {
-      isUploading = false;
-      uploadProgress = 0;
-      // Reset the input
-      input.value = "";
-      // Close the upload menu
-      isUploadMenuOpen = false;
-    }
-  }
-
-  async function handleFolderSelect(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (!input.files?.length) return;
-
-    isUploading = true;
-    uploadProgress = 0;
-
-    // Process the folder structure
-    try {
-      await processFolderStructure(input.files);
-      // Reload the folder tree to show new items
-      await loadFolderTree();
-    } finally {
-      isUploading = false;
-      uploadProgress = 0;
-      // Reset the input
-      input.value = "";
-      // Close the upload menu
-      isUploadMenuOpen = false;
-    }
-  }
-
-  async function processFolderStructure(files: FileList) {
-    const fileArray = Array.from(files);
-    const totalFiles = fileArray.length;
-    let processedFiles = 0;
-
-    // First, create all folders
-    const folderMap = new Map<string, string>(); // path -> folderId
-    folderMap.set("", currentFolderId || ""); // Root folder
-
-    // Sort files to process folders first
-    const sortedFiles = fileArray.sort((a, b) => {
-      const aPath = a.webkitRelativePath || a.name;
-      const bPath = b.webkitRelativePath || b.name;
-      return aPath.split("/").length - bPath.split("/").length;
-    });
-
-    try {
-      for (const file of sortedFiles) {
-        const path = file.webkitRelativePath || file.name;
-        const parts = path.split("/");
-        const fileName = parts.pop()!;
-
-        if (!fileName.endsWith(".md")) {
-          continue; // Skip non-markdown files
-        }
-
-        // Create folders if needed
-        let currentPath = "";
-        for (let i = 0; i < parts.length; i++) {
-          const folderName = parts[i];
-          const parentPath = currentPath;
-          currentPath = currentPath
-            ? `${currentPath}/${folderName}`
-            : folderName;
-
-          if (!folderMap.has(currentPath)) {
-            const parentId = folderMap.get(parentPath) || currentFolderId;
-            const folder = await documentManager.createFolder(
-              folderName,
-              parentId || undefined
+            const document = await documentManager.createDocument(
+              title,
+              content,
+              currentFolderId || undefined
             );
-            folderMap.set(currentPath, folder.id);
-            // Add the folder to the store
-            documentActions.addDocument(folder);
-          }
-        }
 
-        // Create the document
-        const content = await file.text();
-        const title = fileName.replace(".md", "");
-        const parentId = folderMap.get(parts.join("/")) || currentFolderId;
-        const document = await documentManager.createDocument(
-          title,
-          content,
-          parentId || undefined
-        );
-        // Add the document to the store
-        documentActions.addDocument(document);
+            // Add the document to the store
+            documentActions.addDocument(document);
+          }
+        } catch (error) {
+          console.error(`Failed to process file ${file.name}:`, error);
+          folderTreeActions.setError(
+            `Failed to process ${file.name}: ${error instanceof Error ? error.message : "Unknown error"}`
+          );
+        }
 
         processedFiles++;
         uploadProgress = (processedFiles / totalFiles) * 100;
       }
+
+      // Reload the folder tree to show new items
+      await loadFolderTree();
     } catch (error) {
       console.error("Upload failed:", error);
-      throw error; // Re-throw to be handled by the caller
+      folderTreeActions.setError(
+        error instanceof Error ? error.message : "Failed to upload files"
+      );
+    } finally {
+      isUploading = false;
+      uploadProgress = 0;
+      // Reset the input
+      input.value = "";
+      // Close the upload menu
+      isImportExportMenuOpen = false;
+    }
+  }
+
+  interface DocumentStructure {
+    name: string;
+    content: string;
+  }
+
+  interface FolderStructure {
+    name: string;
+    content: string; // if we have content, we are a document with children not a folder
+    children: (FolderStructure | DocumentStructure)[];
+  }
+
+  function processZipDirectory(
+    file: JSZip.JSZipObject,
+    folders: Map<string, FolderStructure>
+  ) {
+    const filePath = file.name;
+    if (file.dir) {
+      let folderName = filePath.replace(".zip", "").slice(0, -1);
+      let parentFolder = folderName.split("/")[0];
+
+      if (folders.get(parentFolder)) {
+        folders.get(parentFolder)?.children.push({
+          name: folderName,
+          content: "",
+          children: [],
+        } as FolderStructure);
+      } else {
+        folders.set(folderName, {
+          name: folderName,
+          content: "",
+          children: [],
+        } as FolderStructure);
+      }
+    }
+  }
+
+  async function processZipDocument(
+    file: JSZip.JSZipObject,
+    folders: Map<string, FolderStructure>
+  ) {
+    const filePath = file.name;
+    const fileName = filePath.split("/").pop()?.replace(".md", "");
+    const splitPath = filePath.split("/");
+
+    let parentDocument: FolderStructure | undefined = folders.get(splitPath[0]);
+    let parentName = splitPath[0];
+    while (parentDocument?.children?.length) {
+      splitPath.shift();
+      parentName = parentName + "/" + splitPath[0];
+      parentDocument = parentDocument.children.find(
+        (child) => child.name === parentName
+      ) as FolderStructure;
+    }
+
+    if (!parentDocument) {
+      console.error("Parent document not found for", parentName);
+      return;
+    }
+
+    if (fileName?.startsWith("_folder")) {
+      parentDocument.content = await file.async("text");
+    } else {
+      parentDocument.children.push({
+        name: fileName?.split("/").pop() as string,
+        content: await file.async("text"),
+      } as DocumentStructure);
+    }
+  }
+
+  async function processZipFile(zipFile: File) {
+    // might be a zip file or a folder
+    const structure = new Map<string, FolderStructure>();
+    const zip = new JSZip();
+    const zipContent = await zip.loadAsync(zipFile);
+    const files = Object.values(zipContent.files);
+    for (const file of files) {
+      if (file.dir) {
+        processZipDirectory(file, structure);
+      } else {
+        processZipDocument(file, structure);
+      }
+    }
+
+    for (const folder of structure.values()) {
+      await createDocumentsFromStructure(folder);
+    }
+  }
+
+  async function createDocumentsFromStructure(
+    structure: FolderStructure,
+    parentId?: string
+  ) {
+    const isFolder = structure.content?.trim()?.length === 0;
+    let parent: Document;
+    if (isFolder) {
+      parent = await documentManager.createFolder(structure.name, parentId);
+    } else {
+      parent = await documentManager.createDocument(
+        structure.name.split("/").pop() as string,
+        structure.content,
+        parentId
+      );
+    }
+
+    for (const child of structure.children) {
+      const isFolderStructure = "children" in child;
+      if (isFolderStructure) {
+        await createDocumentsFromStructure(child, parent.id);
+      } else {
+        await documentManager.createDocument(
+          child.name.split("/").pop() as string,
+          child.content,
+          parent.id
+        );
+      }
     }
   }
 
@@ -589,69 +645,178 @@
     renameName = document.title;
     showRenameModal = true;
   }
+
+  async function handleExport() {
+    if (!$folderTree || $folderTree.length === 0) return;
+
+    isExporting = true;
+    try {
+      const zip = new JSZip();
+
+      // Recursive function to add files to zip
+      async function addToZip(node: FolderTreeNode, path: string = "") {
+        const currentPath = path
+          ? `${path}/${node.document.title}`
+          : node.document.title;
+
+        if (node.document.is_folder || node.children.length > 0) {
+          // If it's a folder or has children, create a folder
+          if (node.document.content) {
+            // Add folder content if it exists
+            zip.file(`${currentPath}/_folder.md`, node.document.content);
+          }
+
+          // Process children
+          for (const child of node.children) {
+            await addToZip(child, currentPath);
+          }
+        } else {
+          // Regular document
+          zip.file(`${currentPath}.md`, node.document.content);
+        }
+      }
+
+      // Process all root nodes
+      for (const node of $folderTree) {
+        await addToZip(node);
+      }
+
+      // Generate and download zip
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "documents.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      folderTreeActions.setError(
+        err instanceof Error ? err.message : "Failed to export documents"
+      );
+    } finally {
+      isExporting = false;
+    }
+  }
 </script>
 
 <!-- Folder Tree Actions -->
 <div class="flex items-center gap-2 mb-3">
   <button
-    class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+    class="w-32 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
     onclick={createDocument}
     title="New Document"
     aria-label="New Document"
   >
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+      />
     </svg>
     New
   </button>
-  <div class="relative">
-    <button
-      id="upload-button"
-      class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
-      onclick={() => isUploadMenuOpen = !isUploadMenuOpen}
-      title="Upload Options"
-      aria-label="Upload Options"
-    >
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-      </svg>
-      Upload
-    </button>
-    <div id="upload-menu" class="absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-900 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 py-1 z-10 {isUploadMenuOpen ? '' : 'hidden'}">
-      <label class="block px-4 py-2 text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
-        <input type="file" accept=".md" multiple onchange={handleFileSelect} class="hidden" disabled={isUploading} />
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 712-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Upload Files
-        </div>
-      </label>
-      <label class="block px-4 py-2 text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
-        <input type="file" accept=".md" webkitdirectory onchange={handleFolderSelect} class="hidden" disabled={isUploading} />
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-          Upload Folder
-        </div>
-      </label>
-    </div>
-  </div>
   <button
-    class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+    class="w-32 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
     onclick={() => (showCreateFolderModal = true)}
     title="New Folder"
     aria-label="New Folder"
   >
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z M4 1v5m0 0v5m0-5h5m-5 0H-1"
+      />
     </svg>
     Folder
   </button>
+  <div class="relative w-32">
+    <button
+      id="import-export-button"
+      class="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+      onclick={() => (isImportExportMenuOpen = !isImportExportMenuOpen)}
+      title="Import/Export Options"
+      aria-label="Import/Export Options"
+    >
+      <svg
+        class="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+        />
+      </svg>
+      Files
+    </button>
+    <div
+      id="import-export-menu"
+      class="absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-900 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 py-1 z-10 {isImportExportMenuOpen
+        ? ''
+        : 'hidden'}"
+    >
+      <label
+        class="block px-4 py-2 text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer"
+      >
+        <input
+          type="file"
+          accept=".md,.zip"
+          multiple
+          onchange={handleFileSelect}
+          class="hidden"
+          disabled={isUploading}
+        />
+        <div class="flex items-center gap-2">
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+            />
+          </svg>
+          Import Files
+        </div>
+      </label>
+      <button
+        class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 flex items-center gap-2"
+        onclick={handleExport}
+        disabled={isExporting || !$folderTree || $folderTree.length === 0}
+      >
+        <svg
+          class="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+          />
+        </svg>
+        Export All
+      </button>
+    </div>
+  </div>
 </div>
 
-{#if isUploading}
+{#if isUploading || isExporting}
   <div class="w-full bg-gray-200 dark:bg-zinc-700 rounded-full h-1 mb-3">
     <div
       class="bg-blue-600 h-1 rounded-full transition-all duration-300"
@@ -733,7 +898,7 @@
       <FolderTreeItem
         {node}
         isExpanded={$expandedFolders.includes(node.document.id)}
-        isSelected={currentDoc?.id === node.document.id}
+        isSelected={$currentDocument?.id === node.document.id}
         {dragOverItem}
         {dragPosition}
         onToggle={toggleFolder}
@@ -850,9 +1015,7 @@
       </h3>
       <input
         bind:value={renameName}
-        placeholder={renameTarget?.is_folder
-          ? "Folder name"
-          : "Document name"}
+        placeholder={renameTarget?.is_folder ? "Folder name" : "Document name"}
         class="w-full px-4 py-2.5 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100"
         onkeydown={(e) => {
           if (e.key === "Enter" && renameName.trim()) {

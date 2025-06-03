@@ -99,11 +99,7 @@ export class DocumentManagerService {
     public async createDocument(title: string, content: string = '', parentId?: string): Promise<Document> {
         try {
             const document = await this.documentService.createDocument(title, content, undefined, parentId || undefined);
-            this.currentDocumentId = document.id;
-            documentActions.setCurrentDocument(document);
             documentActions.addDocument(document);
-
-            this.subscribeToCurrentDocument();
 
             return document;
         } catch (error) {
