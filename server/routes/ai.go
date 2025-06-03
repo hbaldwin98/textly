@@ -31,6 +31,7 @@ type AIModelDTO struct {
 func ToDTO(model *queries.AIModel) (*AIModelDTO, error) {
 	capabilities, err := model.GetCapabilities()
 	if err != nil {
+		log.Println("Failed to get capabilities for model:", model.Id, err)
 		return nil, err
 	}
 
@@ -127,6 +128,7 @@ func ModelsHandler(e *core.RequestEvent) error {
 	for i, model := range models {
 		dto, err := ToDTO(model)
 		if err != nil {
+			log.Println("Failed to process model data:", err)
 			return e.Error(http.StatusInternalServerError, "Failed to process model data", err)
 		}
 		modelDTOs[i] = dto

@@ -62,6 +62,10 @@ type AIModel struct {
 
 func (m *AIModel) GetCapabilities() ([]string, error) {
 	var capabilities []string
+	if m.Capabilities == "" {
+		return nil, nil
+	}
+
 	if err := json.Unmarshal([]byte(m.Capabilities), &capabilities); err != nil {
 		return nil, err
 	}
@@ -101,7 +105,7 @@ func CreateAIModel(e *core.RequestEvent, model *AIModel) (*AIModel, error) {
 	}, nil
 }
 
-func createDefaultAIModel(se *core.ServeEvent, model *AIModel) (*AIModel, error) {
+func seedDefaultAIModel(se *core.ServeEvent, model *AIModel) (*AIModel, error) {
 	collection, err := se.App.FindCollectionByNameOrId("ai_models")
 	if err != nil {
 		return nil, err
@@ -166,7 +170,13 @@ func GetAllAIModels(e *core.RequestEvent) ([]*AIModel, error) {
 	return models, nil
 }
 
-func UpdateAIModel(e *core.RequestEvent, identifier string, fields map[string]interface{}) error {
+func UpdateAIModel(e *core.RequestEvent, identifier string, fields dbx.Params) error {
+	query := e.App.DB().Update("ai_models", fields, dbx.HashExp{"identifier": identifier})
+	_, err := query.Execute()
+	return err
+}
+
+func updateDefaultAIModel(e *core.ServeEvent, identifier string, fields dbx.Params) error {
 	query := e.App.DB().Update("ai_models", fields, dbx.HashExp{"identifier": identifier})
 	_, err := query.Execute()
 	return err
@@ -190,6 +200,15 @@ func SeedDefaultModels(e *core.ServeEvent) error {
 			Default:      false,
 		},
 		{
+			Identifier:   "openai/gpt-4.1-mini",
+			Name:         "GPT-4.1 Mini",
+			Description:  "Fast and efficient for everyday tasks",
+			Icon:         "🚀",
+			Capabilities: `["internet"]`,
+			Provider:     "OpenAI",
+			Default:      false,
+		},
+		{
 			Identifier:   "openai/gpt-4o",
 			Name:         "GPT-4o",
 			Description:  "More capable model with advanced reasoning",
@@ -203,15 +222,6 @@ func SeedDefaultModels(e *core.ServeEvent) error {
 			Name:         "GPT-4o Mini",
 			Description:  "Fast and efficient for everyday tasks",
 			Icon:         "⚡",
-			Capabilities: `["internet"]`,
-			Provider:     "OpenAI",
-			Default:      false,
-		},
-		{
-			Identifier:   "openai/gpt-4.1-mini",
-			Name:         "GPT-4.1 Mini",
-			Description:  "Fast and efficient for everyday tasks",
-			Icon:         "🚀",
 			Capabilities: `["internet"]`,
 			Provider:     "OpenAI",
 			Default:      false,
@@ -256,7 +266,7 @@ func SeedDefaultModels(e *core.ServeEvent) error {
 			Identifier:   "perplexity/sonar-reasoning",
 			Name:         "Perplexity Sonar Reasoning",
 			Description:  "Perplexity's reasoning model powered by DeepSeek R1",
-			Icon:         "🔍",
+			Icon:         "🔬",
 			Capabilities: `["reasoning", "internet"]`,
 			Provider:     "Perplexity",
 			Default:      false,
@@ -265,7 +275,7 @@ func SeedDefaultModels(e *core.ServeEvent) error {
 			Identifier:   "perplexity/sonar-reasoning-pro",
 			Name:         "Perplexity Sonar Reasoning Pro",
 			Description:  "Perplexity's advanced reasoning model powered by DeepSeek R1",
-			Icon:         "🔍",
+			Icon:         "🔭",
 			Capabilities: `["reasoning", "internet"]`,
 			Provider:     "Perplexity",
 			Default:      false,
@@ -280,11 +290,20 @@ func SeedDefaultModels(e *core.ServeEvent) error {
 			Default:      false,
 		},
 		{
+			Identifier:   "google/gemini-2.5-pro-preview",
+			Name:         "Gemini 2.5 Pro Preview",
+			Description:  "Google's latest and most capable model",
+			Icon:         "✨",
+			Capabilities: `["reasoning"]`,
+			Provider:     "Google",
+			Default:      false,
+		},
+		{
 			Identifier:   "google/gemini-2.5-flash-preview-05-20",
 			Name:         "Gemini 2.5 Flash Preview",
-			Description:  "Google's latest and most capable model",
+			Description:  "Google's latest and most capable flash model",
 			Icon:         "💎",
-			Capabilities: `["reasoning"]`,
+			Capabilities: `["reasoningsuffix"]`,
 			Provider:     "Google",
 			Default:      false,
 		},
@@ -298,10 +317,20 @@ func SeedDefaultModels(e *core.ServeEvent) error {
 			Default:      false,
 		},
 		{
+			Identifier:   "deepseek/deepseek-r1-0528",
+			Name:         "DeepSeek R1 0528",
+			Description:  "DeepSeek's latest and most capable model (Updated)",
+			Icon:         "🌊",
+			Capabilities: `["reasoning"]`,
+			Provider:     "DeepSeek",
+			Default:      false,
+		},
+
+		{
 			Identifier:   "deepseek/deepseek-r1",
 			Name:         "DeepSeek R1",
 			Description:  "DeepSeek's latest and most capable model",
-			Icon:         "🌊",
+			Icon:         "🌌",
 			Capabilities: `["reasoning"]`,
 			Provider:     "DeepSeek",
 			Default:      false,
@@ -309,15 +338,31 @@ func SeedDefaultModels(e *core.ServeEvent) error {
 	}
 
 	modelsToCreate := []*AIModel{}
+	modelsToUpdate := []*AIModel{}
 	for _, model := range defaultModels {
 		databaseModel, err := getAIModelByIdentifier(e, model.Identifier)
 		if err != nil || databaseModel == nil {
 			modelsToCreate = append(modelsToCreate, model)
+		} else {
+			modelsToUpdate = append(modelsToUpdate, model)
 		}
 	}
 
 	for _, model := range modelsToCreate {
-		if _, err := createDefaultAIModel(e, model); err != nil {
+		if _, err := seedDefaultAIModel(e, model); err != nil {
+			return err
+		}
+	}
+
+	for _, model := range modelsToUpdate {
+		if err := updateDefaultAIModel(e, model.Identifier, dbx.Params{
+			"name":         model.Name,
+			"description":  model.Description,
+			"icon":         model.Icon,
+			"capabilities": model.Capabilities,
+			"provider":     model.Provider,
+			"default":      model.Default,
+		}); err != nil {
 			return err
 		}
 	}

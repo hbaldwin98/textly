@@ -67,9 +67,12 @@ func Chat(messages []Message, model string, useReasoning bool, ctx context.Conte
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
 		},
-		Model:           selectedModel,
-		MaxTokens:       param.NewOpt(int64(8000)),
-		ReasoningEffort: shared.ReasoningEffortHigh,
+		Model:     selectedModel,
+		MaxTokens: param.NewOpt(int64(8000)),
+	}
+
+	if useReasoning {
+		params.ReasoningEffort = shared.ReasoningEffortMedium
 	}
 
 	params.SetExtraFields(map[string]any{

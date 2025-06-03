@@ -4,6 +4,7 @@ import { AuthorizationService } from '../authorization/authorization.service';
 import { env } from '$env/dynamic/public';
 
 export interface ModelCapabilities {
+  usesReasoningSuffix: boolean;
   reasoning: boolean;
   internet: boolean;
   standard: boolean;
@@ -42,7 +43,7 @@ export interface ModelState {
   selectedModel: AIModel | null;
   isLoading: boolean;
   error: string | null;
-  capabilityOverrides: {[modelId: string]: Partial<ModelCapabilities>};
+  capabilityOverrides: { [modelId: string]: Partial<ModelCapabilities> };
 }
 
 class ModelService {
@@ -78,9 +79,10 @@ class ModelService {
   private convertDTOToModel(dto: AIModelDTO): AIModel {
     // Convert string array capabilities to ModelCapabilities object
     const capabilities: ModelCapabilities = {
-      reasoning: dto.capabilities.includes('reasoning'),
-      internet: dto.capabilities.includes('internet'),
-      standard: true // All models support standard chat
+      reasoning: (dto?.capabilities?.includes('reasoning') || dto?.capabilities?.includes('reasoningsuffix')) ?? false,
+      usesReasoningSuffix: dto?.capabilities?.includes('reasoningsuffix') ?? false,
+      internet: dto?.capabilities?.includes('internet') ?? false,
+      standard: true,
     };
 
     return {
@@ -88,7 +90,7 @@ class ModelService {
       name: dto.name,
       description: dto.description,
       icon: dto.icon,
-      capabilities,
+      capabilities: capabilities,
       provider: dto.provider,
       default: dto.default
     };
@@ -103,7 +105,7 @@ class ModelService {
         // If not authenticated, just load static models
         const models = await this.loadModelsFromStatic();
         const selectedModel = models.find(m => m.default) || models[0] || null;
-        
+
         this.store.update(state => ({
           ...state,
           availableModels: models,
@@ -126,12 +128,12 @@ class ModelService {
       // Find default model or use first one
       const savedModelId = this.loadSelectedModelFromStorage();
       let selectedModel: AIModel | null = null;
-      
+
       if (savedModelId) {
         // Try to find the saved model
         selectedModel = models.find(m => m.id === savedModelId) || null;
       }
-      
+
       // Fallback to default model or first one if saved model not found
       if (!selectedModel) {
         selectedModel = models.find(m => m.default) || models[0] || null;
@@ -175,7 +177,7 @@ class ModelService {
 
   private async loadModelsFromStatic(): Promise<AIModel[]> {
     const response = await fetch('/ai-models.json');
-    
+
     if (!response.ok) {
       throw new Error('Failed to load static model configuration');
     }
@@ -194,11 +196,11 @@ class ModelService {
       // Clear capability overrides for capabilities the new model doesn't support
       const currentOverrides = state.capabilityOverrides[modelId] || {};
       const validOverrides: Partial<ModelCapabilities> = {};
-      
+
       // Only keep overrides for capabilities the model actually supports
       Object.entries(currentOverrides).forEach(([capability, value]) => {
         const capKey = capability as keyof ModelCapabilities;
-        if (model.capabilities[capKey]) {
+        if (model?.capabilities[capKey]) {
           validOverrides[capKey] = value;
         }
       });
@@ -212,9 +214,9 @@ class ModelService {
       this.saveSelectedModelToStorage(modelId);
       this.saveCapabilityOverridesToStorage(newCapabilityOverrides);
 
-      return { 
-        ...state, 
-        selectedModel: model, 
+      return {
+        ...state,
+        selectedModel: model,
         error: null,
         capabilityOverrides: newCapabilityOverrides
       };
@@ -286,13 +288,14 @@ class ModelService {
     if (!model) return null;
 
     const overrides = state!.capabilityOverrides[modelId] || {};
-    
+
     // Start with all capabilities disabled by default
     // Only enable capabilities that the user has explicitly overridden to true
     return {
-      reasoning: overrides.reasoning === true,
-      internet: overrides.internet === true,
-      standard: overrides.standard === true
+      usesReasoningSuffix: model.capabilities?.usesReasoningSuffix,
+      reasoning: overrides?.reasoning === true,
+      internet: overrides?.internet === true,
+      standard: true
     };
   }
 
@@ -301,12 +304,16 @@ class ModelService {
     if (!capabilities) return modelId;
 
     let effectiveId = modelId;
-    
+
     // Add :online suffix if internet capability is enabled
     if (capabilities.internet) {
       effectiveId += ':online';
     }
-    
+
+    if (capabilities.reasoning && capabilities.usesReasoningSuffix) {
+      effectiveId += ':thinking';
+    }
+
     return effectiveId;
   }
 
@@ -318,9 +325,9 @@ class ModelService {
     return capabilities?.reasoning || false;
   }
 
-  private loadCapabilityOverridesFromStorage(): {[modelId: string]: Partial<ModelCapabilities>} {
+  private loadCapabilityOverridesFromStorage(): { [modelId: string]: Partial<ModelCapabilities> } {
     if (!browser) return {};
-    
+
     try {
       const stored = localStorage.getItem(ModelService.STORAGE_KEY_CAPABILITY_OVERRIDES);
       return stored ? JSON.parse(stored) : {};
@@ -330,9 +337,9 @@ class ModelService {
     }
   }
 
-  private saveCapabilityOverridesToStorage(overrides: {[modelId: string]: Partial<ModelCapabilities>}): void {
+  private saveCapabilityOverridesToStorage(overrides: { [modelId: string]: Partial<ModelCapabilities> }): void {
     if (!browser) return;
-    
+
     try {
       localStorage.setItem(ModelService.STORAGE_KEY_CAPABILITY_OVERRIDES, JSON.stringify(overrides));
     } catch (err) {
@@ -342,7 +349,7 @@ class ModelService {
 
   private loadSelectedModelFromStorage(): string | null {
     if (!browser) return null;
-    
+
     try {
       return localStorage.getItem(ModelService.STORAGE_KEY_SELECTED_MODEL);
     } catch (err) {
@@ -353,7 +360,7 @@ class ModelService {
 
   private saveSelectedModelToStorage(modelId: string): void {
     if (!browser) return;
-    
+
     try {
       localStorage.setItem(ModelService.STORAGE_KEY_SELECTED_MODEL, modelId);
     } catch (err) {
