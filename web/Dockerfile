@@ -1,44 +1,49 @@
 # Build stage
-FROM oven/bun:1 AS builder
+FROM node:18 AS builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY bun.lock ./
 
-# Install ALL dependencies (including devDependencies)
-RUN bun install
+# Install SvelteKit Node adapter for Docker deployment
+RUN npm install @sveltejs/adapter-node
+
+# Apply the npm workaround for Rollup issue
+RUN npm cache clean --force
+RUN rm -rf node_modules package-lock.json
+RUN npm install
 
 # Copy source code
 COPY . .
 
-# Set production environment and build the application
-ENV NODE_ENV=production
-RUN bun run build:prod
+# Build the application
+RUN npm run build
 
 # Production stage
-FROM oven/bun:1-slim AS runner
+FROM node:18-alpine AS runner
 
 WORKDIR /app
 
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
 # Copy package files first
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/bun.lock ./
 
-# Install ALL dependencies (including devDependencies) in production
-RUN bun install
+# Install production dependencies
+RUN npm ci --only=production && npm cache clean --force
 
 # Create a non-root user
-RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 --ingroup appgroup appuser
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S sveltekit -u 1001
 
 # Copy built application from builder stage
 COPY --from=builder /app/build ./
 
 # Change ownership of the app directory
-RUN chown -R appuser:appgroup /app
-USER appuser
+RUN chown -R sveltekit:nodejs /app
+USER sveltekit
 
 # Expose port
 EXPOSE 3001
@@ -47,4 +52,5 @@ EXPOSE 3001
 ENV NODE_ENV=production
 
 # Command to run the application
-CMD ["bun", "index.js"] 
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "index.js"] 

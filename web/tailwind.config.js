@@ -1,23 +1,6 @@
 export default {
-  content: [
-    './src/**/*.{html,js,svelte,ts}',
-    './src/**/*.{js,ts,jsx,tsx,svelte}',
-    './src/**/*.svelte',
-    './src/**/*.html'
-  ],
+  content: ['./src/**/*.{html,js,svelte,ts}'],
   darkMode: 'class',
-  safelist: [
-    // Add any dynamic classes that Tailwind might not detect
-    'dark',
-    'light',
-    // Add any classes that are dynamically generated
-    /^bg-/,
-    /^text-/,
-    /^border-/,
-    /^hover:/,
-    /^focus:/,
-    /^active:/
-  ],
   theme: {
     extend: {
       fontFamily: {
