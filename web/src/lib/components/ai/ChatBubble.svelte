@@ -28,16 +28,16 @@
 
   function handleTouchStart(event: TouchEvent) {
     if (message.role !== "user" || isEditing) return;
-    
-    if (!(event.target as HTMLElement).closest('button')) {
+
+    if (!(event.target as HTMLElement).closest("button")) {
       event.preventDefault();
     }
-    
+
     isTouching = true;
     touchStartTime = Date.now();
     touchStartX = event.touches[0].clientX;
     touchStartY = event.touches[0].clientY;
-    
+
     longPressTimer = window.setTimeout(() => {
       isLongPressing = true;
       onEdit(message.id);
@@ -46,11 +46,11 @@
 
   function handleTouchMove(event: TouchEvent) {
     if (!longPressTimer) return;
-    
+
     const touch = event.touches[0];
     const deltaX = Math.abs(touch.clientX - touchStartX);
     const deltaY = Math.abs(touch.clientY - touchStartY);
-    
+
     if (deltaX > 10 || deltaY > 10) {
       if (longPressTimer) {
         clearTimeout(longPressTimer);
@@ -104,13 +104,24 @@
   }
 </script>
 
-<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'} my-4 sm:my-8">
-  <div class="{message.role === 'user' ? ($isMobile ? 'w-full' : 'w-[90%] sm:w-[85%] md:w-[80%] lg:w-[75%] xl:w-[70%]') + ' order-2 transition-[width] duration-300 ease-in-out' : 'w-full order-1'}">
+<div
+  class="flex {message.role === 'user'
+    ? 'justify-end'
+    : 'justify-start'} my-4 sm:my-8"
+>
+  <div
+    class={message.role === "user"
+      ? ($isMobile
+          ? "w-full"
+          : "w-[90%] sm:w-[85%] md:w-[80%] lg:w-[75%] xl:w-[70%]") +
+        " order-2 transition-[width] duration-300 ease-in-out"
+      : "w-full order-1"}
+  >
     <div class="relative">
       <div
-        class="{message.role === 'user'
-          ? 'px-2.5 sm:px-3 py-2 rounded-lg text-sm bg-blue-500 text-white group relative'
-          : 'text-sm text-gray-900 dark:text-zinc-100'}"
+        class={message.role === "user"
+          ? "px-2.5 sm:px-3 py-2 rounded-lg text-sm bg-blue-500 text-white group relative"
+          : "text-sm text-gray-900 dark:text-zinc-100"}
         on:touchstart={handleTouchStart}
         on:touchmove={handleTouchMove}
         on:touchend={handleTouchEnd}
@@ -212,7 +223,9 @@
         {/if}
 
         {#if message.role === "user" && !isEditing}
-          <div class="absolute -bottom-6 left-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div
+            class="absolute -bottom-6 left-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          >
             <button
               class="p-1 text-gray-400 hover:text-blue-500 transition-colors"
               on:click={() => onEdit(message.id)}
@@ -566,7 +579,17 @@
   }
 
   :global(.code-block) {
-    font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace) !important;
+    font-family: var(
+      --font-family-mono,
+      ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      Monaco,
+      Consolas,
+      "Liberation Mono",
+      "Courier New",
+      monospace
+    ) !important;
     font-size: 0.875em;
     line-height: 1.5;
     padding: 1em;
